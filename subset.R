@@ -52,10 +52,22 @@ vlist <- c(vlist, "V1374") #ever received treatment
 
 
 vlist <- c(vlist,v_range("1397", "1420")) #rule violation
-
-
 sublist <- data  %>%
   select(all_of(vlist))
+
+
+
+
+
+
+
+
+
+
+
+
+
+## Begin data cleaning
 
 sublist <- sublist %>% #function returns only yes/no codes as 1/2, 
   mutate(across(2:8, ~ as.numeric(gsub(".*\\((-?\\d+)\\).*", "\\1", as.character(.x))))) 
@@ -63,7 +75,6 @@ sublist <- sublist %>% #additionally will have other codes such as negatives but
   mutate(across(10:12, ~ as.numeric(gsub(".*\\((-?\\d+)\\).*", "\\1", as.character(.x)))))
 
 sublist$V0022 <- gsub("^.*=[:space:]*", "", as.character(sublist$V0022))
-sublist$V0022 <-trimws(sublist$V0022, which = 'both')
 
 
 sublist <- sublist %>%
@@ -113,6 +124,13 @@ sublist <- sublist %>%
 
 sublist <- sublist %>% 
   mutate(across(95:133, ~ as.numeric(gsub(".*\\((-?\\d+)\\).*", "\\1", as.character(.x))))) 
+
+
+sublist <- sublist %>%
+  mutate(across(where(~ is.character(.x) | is.factor(.x)), ~ {
+      str_trim(.x)
+    }
+  ))
 
 ## This is if we need to use code to clean new variables, below is a line of code as an example
 ##added <- c("V1185", "V1186", "V1187", "V1200")
