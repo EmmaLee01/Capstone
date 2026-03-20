@@ -1,3 +1,4 @@
+```{r}
 #LOG (MODEL 2)
 library(caret); library(scales)
 
