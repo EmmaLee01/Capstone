@@ -1,0 +1,176 @@
+---
+title: "Capstone"
+output: html_document
+date: "2026-03-20"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+```
+
+```{r}
+cleaned<-read.csv("cleaned_data.csv") #read in cleaned data
+
+# fix outcome variable 
+cleaned <- cleaned %>%
+  mutate(V1398 = ifelse(
+    V1397 == 0 & is.na(V1398),
+    0,
+    V1398
+  ))
+
+cleaned <- cleaned %>%
+  filter(!is.na(V1398))
+
+```
+
+```{r}
+#fixing race variable
+cleaned <- cleaned %>%
+  mutate(Race = case_when(
+    rowSums(across(c(V1952, V1953, V1951, V1954,V1955,V1956,V1957)) == 1) > 1 ~ "Multiracial",
+    V1952 == 1 ~ "White",
+    V1953 == 1 ~ "Black",
+    V1951 == 1 ~ "Hispanic",
+    V1954 == 1 ~ "American Indian",
+    V1955 == 1 ~ "Asian",
+    V1956 == 1 ~ "Native Hawaiian",
+    V1957 == 1 ~ "Other Race",
+    TRUE ~ NA_character_
+  ))
+
+cleaned$Race <- factor(cleaned$Race)
+```
+
+```{r, ignore!}
+#renaming variables/cleaning
+cleaned <- cleaned %>%
+  rename("Number Infractions" = V1398)
+
+cleaned <- cleaned %>%
+  rename("Marital Status" = V0022)
+
+cleaned$`Marital Status` <- factor(cleaned$`Marital Status`)
+
+cleaned <- cleaned %>%
+  rename("Armed Forces" = V0023)
+
+cleaned <- cleaned %>%
+  rename("Times Arrested" = V0909)
+
+cleaned <- cleaned %>%
+  rename("Years of Education" = V0935)
+
+cleaned <- cleaned %>%
+  rename("ADD/ADHD" = V0942)
+
+cleaned <- cleaned %>%
+  rename("Homeless" = V0958)
+
+cleaned <- cleaned %>%
+  rename("Children" = V0982)
+
+cleaned <- cleaned %>%
+  rename("Bipolar" = V1185)%>%
+  rename("Depression" = V1186)%>%
+  rename("Schizophrenia" = V1187)%>%
+  rename("PTSD" = V1188)%>%
+  rename("Anxiety" = V1189)%>%
+  rename("Personality Disorder" = V1190)%>%
+  rename("Other Diagnosis" = V1191)%>%
+  rename("Mental Health Treatment" = V1204)
+
+cleaned <- cleaned %>%
+  rename("Alcoholism" = V1265)%>%
+  rename("Cocaine"= V1316)%>%
+  rename("Crack"= V1317)%>%
+  rename("Heroin"= V1318)%>%
+  rename("PCP"= V1319)%>%
+  rename("Ecstasy"= V1320)%>%
+  rename("Meth"= V1322)%>%
+  rename("Alcohol/Drug Treatment"= V1374)
+  
+
+
+```
+
+```{r}
+#armed forces
+
+cleaned <- cleaned %>%
+  mutate(`Armed Forces` = ifelse(`Armed Forces` == 2, 0, `Armed Forces`))
+
+# ADD/ADHD fix
+
+cleaned <- cleaned %>%
+  mutate(`ADD/ADHD` = ifelse(`ADD/ADHD` == 2, 0, `ADD/ADHD`))
+
+# homeless fix
+
+cleaned <- cleaned %>%
+  mutate(Homeless = ifelse(Homeless == 2, 0, Homeless))
+
+#children fix
+
+cleaned <- cleaned %>%
+  mutate(Children = ifelse(Children == 2, 0, Children))
+
+#mental health fix
+cleaned <- cleaned %>%
+  mutate(Bipolar = ifelse(Bipolar == 2, 0, Bipolar))%>%
+  mutate(Depression = ifelse(Depression == 2, 0, Depression))%>%
+  mutate(Schizophrenia = ifelse(Schizophrenia == 2, 0, Schizophrenia))%>%
+  mutate(PTSD = ifelse(PTSD == 2, 0, PTSD))%>%
+  mutate(Anxiety = ifelse(Anxiety == 2, 0, Anxiety))%>%
+  mutate(`Personality Disorder` = ifelse(`Personality Disorder` == 2, 0, `Personality Disorder`))%>%
+  mutate(`Other Diagnosis` = ifelse(`Other Diagnosis` == 2, 0, `Other Diagnosis`))%>%
+  mutate(`Mental Health Treatment` = ifelse(`Mental Health Treatment` == 2, 0, `Mental Health Treatment`))
+
+#Drugs and alcohol
+
+cleaned <- cleaned %>%
+  mutate(Alcoholism = ifelse(Alcoholism == 2, 0, Alcoholism))%>%
+  mutate(Cocaine = ifelse(Cocaine == 2, 0, Cocaine))%>%
+  mutate(Crack = ifelse(Crack == 2, 0, Crack))%>%
+  mutate(Heroin = ifelse(Heroin == 2, 0, Heroin))%>%
+  mutate(PCP = ifelse(PCP == 2, 0, PCP))%>%
+  mutate(Ecstasy = ifelse(Ecstasy == 2, 0, Ecstasy))%>%
+  mutate(Meth = ifelse(Meth == 2, 0, Meth))%>%
+  mutate(`Alcohol/Drug Treatment` = ifelse(`Alcohol/Drug Treatment` == 2, 0, `Alcohol/Drug Treatment`))
+
+#offense type
+
+cleaned <- cleaned %>%
+  mutate(`Offense Type` = case_when(
+    V0062 == 1 ~ "Violent",
+    V0062 == 2 ~ "Property",
+    V0062 == 3 ~ "Drug",
+    V0062 == 4 ~ "Public Order",
+    TRUE ~ NA_character_
+  ))
+
+cleaned$`Offense Type` <- factor(cleaned$`Offense Type`)
+
+#get rid of negatives
+
+cleaned <- cleaned %>%
+  mutate(across(
+    c(`Number Infractions`, `Armed Forces`, `Times Arrested`, `Years of Education`, `ADD/ADHD`, `Homeless`, `Children`, `Bipolar`, Depression, Schizophrenia, PTSD, Anxiety, `Personality Disorder`, `Other Diagnosis`, `Mental Health Treatment`, Alcoholism, Cocaine, Crack, Heroin, PCP, Ecstasy, Meth, `Alcohol/Drug Treatment`),
+    ~ ifelse(. < 0, NA, .)
+  ))
+
+
+```
+
+```{r}
+#let's try running the model
+
+glm(`Number Infractions` ~ Race + `Armed Forces` + `Marital Status` +`Times Arrested`+ `Years of Education`+ `ADD/ADHD`+ `Homeless`+ `Children`+ `Bipolar`+ Depression+ Schizophrenia+ PTSD+ Anxiety+ `Personality Disorder`+ `Other Diagnosis`+ `Mental Health Treatment`+ Alcoholism+ Cocaine+ Crack+ Heroin+ PCP+ Ecstasy+ Meth+ `Alcohol/Drug Treatment`,
+    family = poisson(link = "log"),
+    data = cleaned)
+```
+```{r}
+
+```
+

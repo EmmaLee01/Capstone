@@ -1,0 +1,78 @@
+```{r}
+#LOG (MODEL 2)
+library(caret); library(scales)
+
+# Create binary outcome
+cleaned$future_violation <- ifelse(cleaned$`Number Infractions` > 0, 1, 0)
+
+# Remove NAs before split
+cleaned_complete <- cleaned[complete.cases(cleaned$future_violation), ]
+
+set.seed(123)
+
+train_idx <- createDataPartition(cleaned_complete$future_violation, p=0.7, list=FALSE)
+train <- cleaned_complete[train_idx, ]
+test <- cleaned_complete[-train_idx, ]
+
+
+test <- test %>%
+  mutate(
+    `Marital Status` = factor(`Marital Status`, 
+                            levels = levels(train$`Marital Status`),
+                            exclude = c(-1,-2,-8,-9, NA)),
+    Race = factor(Race, 
+                 levels = levels(train$Race),
+                 exclude = c("Asian", "Native Hawaiian", "Other Race", NA))
+  )
+
+
+
+# Logistic model
+log_fit <- glm(future_violation ~ `Race` + `Armed Forces` + `Marital Status` + 
+                 `Times Arrested` + `Years of Education` + `ADD/ADHD` + 
+                 `Homeless` + `Children` + `Bipolar` + Depression + 
+                 Schizophrenia + PTSD + Anxiety + `Personality Disorder` + 
+                 `Other Diagnosis` + `Mental Health Treatment` + 
+                 Alcoholism + Cocaine + Crack + Heroin + PCP + Ecstasy + 
+                 Meth + `Alcohol/Drug Treatment`,
+               family = binomial(link = "logit"), data = train)
+
+summary(log_fit)
+
+# Risk table
+test$prob <- predict(log_fit, test, type="response")
+test$risk_index <- rescale(test$prob)
+test$risk_group <- ntile(test$risk_index, 3)
+test$risk_group <- factor(test$risk_group, labels=c("Low","Medium","High"))
+
+final_table <- test %>%
+  filter(!is.na(prob)) %>%
+  group_by(risk_group) %>%
+  summarise(n=n(), risk=round(mean(risk_index),2),
+            pred_prob=round(mean(prob),3),
+            obs_rate=round(mean(future_violation),3),
+            .groups="drop")
+
+print(final_table)
+write_csv(final_table, "logistic_results.csv")
+
+library(pROC)
+
+# AUC (model discrimination)
+auc_score <- auc(roc(test$future_violation, test$prob))
+cat("AUC Score:", round(auc_score, 3), "\n")
+
+# Confusion matrix at 50% threshold
+test$pred <- ifelse(test$prob > 0.5, 1, 0)
+confusion <- table(Predicted = test$pred, Actual = test$future_violation)
+print(confusion)
+
+# Calibration plot data
+calib_data <- test %>%
+  mutate(prob_bin = round(prob, 1)) %>%
+  group_by(prob_bin) %>%
+  summarise(n = n(), observed = mean(future_violation), predicted = mean(prob), .groups = "drop")
+
+print(calib_data)
+
+```
