@@ -1,7 +1,7 @@
 #setwd("C:/Users/Emily/Downloads/STAT 4996")
 library(dplyr)
 library(stringr)
-load(37692-0002-Data.rda)
+#load(37692-0002-Data.rda)
 data<-da37692.0002
 data<- data %>%
   select(where(~ !all(grepl("Suppressed", .x), na.rm = T)))
@@ -67,6 +67,7 @@ sublist <- data  %>%
 
 
 
+
 ## Begin data cleaning
 
 sublist <- sublist %>% #function returns only yes/no codes as 1/2, 
@@ -104,7 +105,7 @@ sublist <- sublist %>% #adding ordering for this variable
 
 
 
-sublist$V1079 <- gsub(".*\\((-?\\d+)\\).*", "\\1", as.character(sublist$V1079))
+sublist$V1079 <- gsub(".*\\((-?\\d+)\\).*", "\\1", as.character(sublist$V1079)) ###
 
 
 sublist <- sublist %>% #adding ordering for this variable
@@ -138,6 +139,63 @@ sublist <- sublist %>%
 ##sublist <- sublist %>%
 ##  mutate(across(all_of(target_vars), ~ as.numeric(gsub(".*\\((-?\\d+)\\).*", "\\1", as.character(.x)))))
 
+
+
+
+##Converting Marital Status back to numerical
+sublist[9] <- data$V0022
+sublist[9]<-gsub(".*\\((-?\\d+)\\).*","\\1", as.character(sublist$V0022))
+
+##temp fix for conversion of All time/none time 
+sublist <- sublist %>% 
+  mutate(across(57:81, ~ as.numeric(gsub(".*\\((-?\\d+)\\).*", "\\1", as.character(.x))))) 
+#sublist[89:]
+
+
+#Conversion for NA, 0
+
+sublist$V1398[is.na(sublist$V1398)] <- 0
+offenses<-data[is.na(data$V0062),]
+
+sublist <- sublist %>%
+  mutate(V0062 = data$V0062)
+sublist[158]<-gsub(".*\\((-?\\d+)\\).*","\\1", as.character(sublist$V0062))
+
+
+sublist <- sublist %>%
+  mutate(V1398 = ifelse(
+    V1397 == 0 & is.na(V1398),
+    0,
+    V1398
+  ))
+
+sublist <- sublist %>%
+  filter(!is.na(V1398))
+
+
+
+
+
+
+
+sublist <- sublist %>%
+  mutate(V1398 = ifelse(
+    V1397 == 0 & is.na(V1398),
+    0,
+    V1398
+  ))
+
+  
+
+
+
+
+
+##Begin model writing
+firstmod<-glm(V1398~V1951+V1952+V1953+V1954+V1955+V1956+V1957+V0037+V0038+V0023+V0062, 
+              data = sublist,
+              family = poisson(link="log")
+              )
 
 
 
