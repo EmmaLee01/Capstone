@@ -7,18 +7,18 @@ date: "2026-03-20"
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(dplyr)
+setwd("/Users/sophiekemprecos/Desktop/Capstone")
 ```
 
 ```{r}
-cleaned<-read.csv("cleaned_data.csv") #read in cleaned data
+cleaned<-read.csv("cleaned.csv") #read in cleaned data
 
 # fix outcome variable 
 cleaned <- cleaned %>%
   mutate(V1398 = ifelse(
     V1397 == 0 & is.na(V1398),
     0,
-    V1398
-  ))
+    V1398))
 
 cleaned <- cleaned %>%
   filter(!is.na(V1398))
@@ -90,29 +90,22 @@ cleaned <- cleaned %>%
   rename("Ecstasy"= V1320)%>%
   rename("Meth"= V1322)%>%
   rename("Alcohol/Drug Treatment"= V1374)
-  
-
-
 ```
 
 ```{r}
 #armed forces
-
 cleaned <- cleaned %>%
   mutate(`Armed Forces` = ifelse(`Armed Forces` == 2, 0, `Armed Forces`))
 
 # ADD/ADHD fix
-
 cleaned <- cleaned %>%
   mutate(`ADD/ADHD` = ifelse(`ADD/ADHD` == 2, 0, `ADD/ADHD`))
 
 # homeless fix
-
 cleaned <- cleaned %>%
   mutate(Homeless = ifelse(Homeless == 2, 0, Homeless))
 
 #children fix
-
 cleaned <- cleaned %>%
   mutate(Children = ifelse(Children == 2, 0, Children))
 
@@ -128,7 +121,6 @@ cleaned <- cleaned %>%
   mutate(`Mental Health Treatment` = ifelse(`Mental Health Treatment` == 2, 0, `Mental Health Treatment`))
 
 #Drugs and alcohol
-
 cleaned <- cleaned %>%
   mutate(Alcoholism = ifelse(Alcoholism == 2, 0, Alcoholism))%>%
   mutate(Cocaine = ifelse(Cocaine == 2, 0, Cocaine))%>%
@@ -140,20 +132,17 @@ cleaned <- cleaned %>%
   mutate(`Alcohol/Drug Treatment` = ifelse(`Alcohol/Drug Treatment` == 2, 0, `Alcohol/Drug Treatment`))
 
 #offense type
-
 cleaned <- cleaned %>%
   mutate(`Offense Type` = case_when(
     V0062 == 1 ~ "Violent",
     V0062 == 2 ~ "Property",
     V0062 == 3 ~ "Drug",
     V0062 == 4 ~ "Public Order",
-    TRUE ~ NA_character_
-  ))
+    TRUE ~ NA_character_))
 
 cleaned$`Offense Type` <- factor(cleaned$`Offense Type`)
 
 #get rid of negatives
-
 cleaned <- cleaned %>%
   mutate(across(
     c(`Number Infractions`, `Armed Forces`, `Times Arrested`, `Years of Education`, `ADD/ADHD`, `Homeless`, `Children`, `Bipolar`, Depression, Schizophrenia, PTSD, Anxiety, `Personality Disorder`, `Other Diagnosis`, `Mental Health Treatment`, Alcoholism, Cocaine, Crack, Heroin, PCP, Ecstasy, Meth, `Alcohol/Drug Treatment`),
@@ -163,14 +152,180 @@ cleaned <- cleaned %>%
 
 ```
 
+# EDA
 ```{r}
-#let's try running the model
 
-glm(`Number Infractions` ~ Race + `Armed Forces` + `Marital Status` +`Times Arrested`+ `Years of Education`+ `ADD/ADHD`+ `Homeless`+ `Children`+ `Bipolar`+ Depression+ Schizophrenia+ PTSD+ Anxiety+ `Personality Disorder`+ `Other Diagnosis`+ `Mental Health Treatment`+ Alcoholism+ Cocaine+ Crack+ Heroin+ PCP+ Ecstasy+ Meth+ `Alcohol/Drug Treatment`,
+plot(cleaned$`Number Infractions`, 
+     main = "Spread of Inmate Infractions", 
+     ylab = "Number of Infractions", 
+     xlab = "Inmate Index",
+     pch = 19, 
+     col = rgb(0,0,1,0.3))
+
+library(ggplot2)
+
+ggplot(cleaned, aes(x = `Alcohol/Drug Treatment`, y = `Number Infractions`)) +
+  geom_jitter(alpha = 0.4, color = "blue") + 
+  geom_smooth(method = "lm", col = "red") + 
+  labs(title = "Treatment vs. Rule Violations",
+       x = "Alcohol or Drug Treatment",
+       y = "Number of Infractions")
+
+cleaned <- cleaned %>%
+  mutate(Race = case_when(
+    Race %in% c("Native Hawaiian", "American Indian", "Other Race") ~ "Other",
+    TRUE ~ as.character(Race))) %>%
+  mutate(num_diagnoses = rowSums(across(
+    c(Bipolar, Depression, Schizophrenia, PTSD, Anxiety, `Personality Disorder`)),
+    na.rm = TRUE))
+
+cleaned$Race <- factor(cleaned$Race)
+
+# Rule Violation by number of diagnoses
+ggplot(cleaned, aes(x = as.factor(num_diagnoses), y = `Number Infractions`, fill = as.factor(num_diagnoses))) +
+  geom_boxplot(outlier.shape = NA, alpha = 0.7) + 
+  geom_jitter(alpha = 0.3, width = 0.2, color = "darkgrey") + 
+  labs(title = "Rule Violations by Number of Diagnoses",
+       x = "Number of Diagnoses",
+       y = "Number of Infractions") +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+# Rule violation by Race
+ggplot(cleaned, aes(x = as.factor(Race), y = `Number Infractions`, fill = as.factor(Race))) +
+  geom_boxplot(outlier.shape = NA, alpha = 0.7) + 
+  geom_jitter(alpha = 0.3, width = 0.2, color = "darkgrey") + 
+  labs(title = "Rule Violations by Race",
+       x = "Race",
+       y = "Number of Infractions") +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+# Rule violation by Mental Health Treatment
+ggplot(cleaned, aes(x = as.factor(`Mental Health Treatment`), y = `Number Infractions`, fill = as.factor(`Mental Health Treatment`))) +
+  geom_boxplot(outlier.shape = NA, alpha = 0.7) + 
+  geom_jitter(alpha = 0.3, width = 0.2, color = "darkgrey") + 
+  labs(title = "Rule Violations by Race",
+       x = "Race",
+       y = "Number of Infractions") +
+  theme_minimal() +
+  theme(legend.position = "none")
+```
+# Removing 0 Infractions
+```{r}
+df2 <- cleaned
+
+df2 <- df2 %>%
+  filter(`Number Infractions` >=1) 
+
+median(df2$`Number Infractions`)
+```
+
+```{r}
+# Rule Violation by number of diagnoses
+ggplot(df2, aes(x = as.factor(num_diagnoses), y = `Number Infractions`, fill = as.factor(num_diagnoses))) +
+  geom_boxplot(outlier.shape = NA, alpha = 0.7) + 
+  geom_jitter(alpha = 0.3, width = 0.2, color = "darkgrey") + 
+  labs(title = "Rule Violations by Number of Diagnoses",
+       x = "Number of Diagnoses",
+       y = "Number of Infractions") +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+# Rule violation by Race
+ggplot(df2, aes(x = as.factor(Race), y = `Number Infractions`, fill = as.factor(Race))) +
+  geom_boxplot(outlier.shape = NA, alpha = 0.7) + 
+  geom_jitter(alpha = 0.3, width = 0.2, color = "darkgrey") + 
+  labs(title = "Rule Violations by Race",
+       x = "Race",
+       y = "Number of Infractions") +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+# Rule violation by Gender
+ggplot(df2, aes(x = as.factor(`Mental Health Treatment`), y = `Number Infractions`, fill = as.factor(`Mental Health Treatment`))) +
+  geom_boxplot(outlier.shape = NA, alpha = 0.7) + 
+  geom_jitter(alpha = 0.3, width = 0.2, color = "darkgrey") + 
+  labs(title = "Rule Violations by Race",
+       x = "Race",
+       y = "Number of Infractions") +
+  theme_minimal() +
+  theme(legend.position = "none")
+```
+
+
+```{r}
+library(AER)
+#let's try running the model
+model1 <- glm(`Number Infractions` ~ Race + `Armed Forces` + `Marital Status` +`Times Arrested`+ `Years of Education`+ `ADD/ADHD`+ `Homeless`+ `Children`+ `Bipolar`+ Depression+ Schizophrenia+ PTSD+ Anxiety+ `Personality Disorder`+ `Other Diagnosis`+ `Mental Health Treatment`+ Alcoholism+ Cocaine+ Crack+ Heroin+ PCP+ Ecstasy+ Meth+ `Alcohol/Drug Treatment`,
     family = poisson(link = "log"),
     data = cleaned)
-```
-```{r}
 
+dispersiontest(model1)
+
+model2 <- glm(`Number Infractions` ~ Race + `Armed Forces` + `Marital Status` +`Times Arrested`+ `Years of Education`+ `ADD/ADHD`+ `Homeless`+ `Children`+ `Bipolar`+ Depression+ Schizophrenia+ PTSD+ Anxiety+ `Personality Disorder`+ `Other Diagnosis`+ `Mental Health Treatment`+ Alcoholism+ Cocaine+ `Alcohol/Drug Treatment`,
+    family = poisson(link = "log"),
+    data = cleaned)
+dispersiontest(model2)
+
+
+
+model4 <- glm(`Number Infractions` ~ Race + `Armed Forces` + `Marital Status` +`Times Arrested`+ `Years of Education`+ `ADD/ADHD`+ `Homeless`+ `Children`+ `Bipolar`+ Depression+ Schizophrenia+ PTSD+ Anxiety+ `Personality Disorder`+ `Other Diagnosis`+ `Mental Health Treatment`+ Alcoholism+ Cocaine+ `Alcohol/Drug Treatment`,
+    family = binom(link = "logit"),
+    data = cleaned)
+dispersiontest(model4)
+```
+# Outlier removal
+```{r}
+top_20_violators <- cleaned %>%
+  slice_max(order_by = `Number Infractions`, n = 20)
+
+print(unique(top_20_violators$`Number Infractions`))
+
+cleaned <- cleaned %>%
+  filter(!(`Number Infractions` %in% c(175, 250)))
+
+new_max <- max(cleaned$`Number Infractions`, na.rm = TRUE)
+cat("The new maximum number of infractions is:", new_max)
+```
+
+# First Stage
+## Defining a threshold
+```{r}
+cleaned$is_high_risk <- ifelse(cleaned$`Number Infractions` > 0, 1, 0)
+```
+
+## Logistic
+```{r}
+model_stage1 <- glm(is_high_risk ~ Race + `Times Arrested` + `Years of Education` + 
+                    `ADD/ADHD` + Bipolar + Depression + Schizophrenia + 
+                    `Mental Health Treatment` + Alcoholism + `Alcohol/Drug Treatment`, 
+                    family = binomial(link = "logit"), 
+                    data = cleaned)
+
+summary(model_stage1)
+
+model_stage2 <- glm(is_high_risk ~ Race + num_diagnoses + `Armed Forces` + `Marital Status` +`Times Arrested`+ `Years of Education`+ `ADD/ADHD`+ `Homeless`+ `Children`+ `Bipolar`+ Depression+ Schizophrenia+ PTSD+ Anxiety+ Heroin + Cocaine + Meth + `Mental Health Treatment`+ `Mental Health Treatment`:num_diagnoses+Alcoholism+ `Alcohol/Drug Treatment`, 
+                    family = binomial(link = "logit"), data = cleaned)
+
+summary(model_stage2)
+```
+
+# Negative Binomial
+```{r}
+library(MASS)
+library(topmodels) # or the 'countreg' package
+
+model_nb <- glm.nb(`Number Infractions` ~ Race + `Armed Forces` + `Marital Status` +`Times Arrested`+ `Years of Education`+ `ADD/ADHD`+ `Homeless`+ `Children`+ `Bipolar`+ Depression+ Schizophrenia+ PTSD+ Anxiety+ `Personality Disorder`+ Heroin + Cocaine + Meth + `Mental Health Treatment`+ Alcoholism+ `Alcohol/Drug Treatment`, data = cleaned)
+summary(model_nb)
+
+model_nb2 <- glm.nb(`Number Infractions` ~ Race + `Armed Forces` + `Marital Status` +`Times Arrested`+ `Years of Education`+ `ADD/ADHD`+ `Homeless`+ `Children`+ `Bipolar`+ Depression+ Schizophrenia+ PTSD+ Anxiety+ `Personality Disorder`+ Cocaine + `Mental Health Treatment`+ Alcoholism+ `Alcohol/Drug Treatment`, data = cleaned)
+summary(model_nb2)
+
+model_nb3<- glm.nb(`Number Infractions` ~ Race + num_diagnoses + `Armed Forces` + `Marital Status` +`Times Arrested`+ `Years of Education`+ `ADD/ADHD`+ `Homeless`+ `Children`+ `Bipolar`+ Depression+ Schizophrenia+ PTSD+ Anxiety+ Heroin + Cocaine + Meth + `Mental Health Treatment`+ `Mental Health Treatment`:num_diagnoses+Alcoholism+ `Alcohol/Drug Treatment`, data = cleaned)
+summary(model_nb3)
+
+model_nb4<- glm.nb(`Number Infractions` ~ Race + num_diagnoses + `Armed Forces` + `Marital Status` +`Times Arrested`+ `Years of Education`+ `ADD/ADHD`+ `Homeless`+ `Children`+ `Bipolar`+ Depression+ Schizophrenia+ PTSD+ Anxiety+ Heroin + Cocaine + Meth + `Mental Health Treatment`+ `Mental Health Treatment`:num_diagnoses+Alcoholism+ `Alcohol/Drug Treatment`, data = cleaned)
+summary(model_nb4)
 ```
 
