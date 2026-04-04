@@ -1,0 +1,427 @@
+---
+title: "Capstone"
+output:
+  pdf_document: default
+  html_document: default
+date: "2026-03-20"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(ggplot2)
+library(MASS)
+library(viridis)
+library(ggcorrplot)
+library(dplyr)
+library(fastDummies)
+setwd("/Users/sophiekemprecos/Desktop/Capstone")
+
+```
+
+```{r}
+cleaned<-read.csv("cleaned.csv") #read in cleaned data
+
+# fix outcome variable 
+cleaned <- cleaned %>%
+  mutate(V1398 = ifelse(
+    V1397 == 0 & is.na(V1398),
+    0,
+    V1398))
+
+cleaned <- cleaned %>%
+  filter(!is.na(V1398))
+
+cleaned$V0062_num <- as.numeric(gsub(".*\\((\\d+)\\).*", "\\1", as.character(cleaned$V0062)))
+
+# 2. Map the extracted numbers to the names
+cleaned <- cleaned %>%
+  mutate(offense_type = case_when(
+    V0062_num == 1 ~ "Violent",
+    V0062_num == 2 ~ "Property",
+    V0062_num == 3 ~ "Drug",
+    V0062_num == 4 ~ "Public Order",
+    V0062_num == 5 ~ "Other",
+    TRUE ~ "Unknown"
+  ))
+
+```
+
+```{r}
+#fixing race variable
+cleaned <- cleaned %>%
+  mutate(Race = case_when(
+    rowSums(across(c(V1952, V1953, V1951, V1954,V1955,V1956,V1957)) == 1) > 1 ~ "Multiracial",
+    V1952 == 1 ~ "White",
+    V1953 == 1 ~ "Black",
+    V1951 == 1 ~ "Hispanic",
+    V1954 == 1 ~ "American Indian",
+    V1955 == 1 ~ "Asian",
+    V1956 == 1 ~ "Native Hawaiian",
+    V1957 == 1 ~ "Other Race",
+    TRUE ~ NA_character_
+  ))
+
+cleaned$Race <- factor(cleaned$Race)
+```
+
+```{r, ignore!}
+#renaming variables/cleaning
+cleaned <- cleaned %>%
+  rename("Number Infractions" = V1398)
+
+cleaned <- cleaned %>%
+  rename("Marital Status" = V0022)
+
+cleaned$`Marital Status` <- factor(cleaned$`Marital Status`)
+
+cleaned <- cleaned %>%
+  rename("Armed Forces" = V0023)
+
+cleaned <- cleaned %>%
+  rename("Times Arrested" = V0909)
+
+cleaned <- cleaned %>%
+  rename("Years of Education" = V0935)
+
+cleaned <- cleaned %>%
+  rename("ADD/ADHD" = V0942)
+
+cleaned <- cleaned %>%
+  rename("Homeless" = V0958)
+
+cleaned <- cleaned %>%
+  rename("Children" = V0982)
+
+cleaned <- cleaned %>%
+  rename("Bipolar" = V1185)%>%
+  rename("Depression" = V1186)%>%
+  rename("Schizophrenia" = V1187)%>%
+  rename("PTSD" = V1188)%>%
+  rename("Anxiety" = V1189)%>%
+  rename("Personality Disorder" = V1190)%>%
+  rename("Other Diagnosis" = V1191)%>%
+  rename("Mental Health Treatment" = V1204)
+
+cleaned <- cleaned %>%
+  rename("Alcoholism" = V1265)%>%
+  rename("Cocaine"= V1316)%>%
+  rename("Crack"= V1317)%>%
+  rename("Heroin"= V1318)%>%
+  rename("PCP"= V1319)%>%
+  rename("Ecstasy"= V1320)%>%
+  rename("Meth"= V1322)%>%
+  rename("Alcohol/Drug Treatment"= V1374)
+```
+
+```{r}
+# 1. First, define a cleaning function to handle the survey's (x) x = Text format
+clean_survey_num <- function(x) {
+  num <- as.numeric(gsub(".*\\((-?\\d+)\\).*", "\\1", as.character(x)))
+  return(ifelse(num == 2, 0, ifelse(num < 0, NA, num)))
+}
+
+vars_to_clean <- c("Armed Forces", "ADD/ADHD", "Homeless", "Children", 
+                   "Bipolar", "Depression", "Schizophrenia", "PTSD", "Anxiety", 
+                   "Personality Disorder", "Other Diagnosis", "Mental Health Treatment", 
+                   "Alcoholism", "Cocaine", "Crack", "Heroin", "PCP", "Ecstasy", 
+                   "Meth", "Alcohol/Drug Treatment")
+
+cleaned <- cleaned %>%
+  mutate(across(all_of(vars_to_clean), ~ clean_survey_num(.)))
+
+# Years of Ed different from other vars
+cleaned$`Years of Education` <- as.numeric(gsub(".*\\((-?\\d+)\\).*", "\\1", as.character(cleaned$`Years of Education`)))
+cleaned$`Years of Education` <- ifelse(cleaned$`Years of Education` < 0, NA, cleaned$`Years of Education`)
+
+cleaned <- cleaned %>%
+  mutate(Race = case_when(
+    Race %in% c("Native Hawaiian", "American Indian", "Other Race") ~ "Other",
+    TRUE ~ as.character(Race))) %>%
+  mutate(num_diagnoses = rowSums(across(
+    c(Bipolar, Depression, Schizophrenia, PTSD, Anxiety, `Personality Disorder`)),
+    na.rm = TRUE))
+
+cleaned$Race <- factor(cleaned$Race)
+```
+
+# EDA
+```{r}
+
+# Rule Violation by number of diagnoses
+ggplot(cleaned, aes(x = as.factor(num_diagnoses), y = `Number Infractions`, fill = as.factor(num_diagnoses))) +
+  geom_boxplot(outlier.shape = NA, alpha = 0.7) + 
+  geom_jitter(alpha = 0.3, width = 0.2, color = "darkgrey") + 
+  labs(title = "Rule Violations by Number of Diagnoses",
+       x = "Number of Diagnoses",
+       y = "Number of Infractions") +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+# Rule violation by Race
+ggplot(cleaned, aes(x = as.factor(Race), y = `Number Infractions`, fill = as.factor(Race))) +
+  geom_boxplot(outlier.shape = NA, alpha = 0.7) + 
+  geom_jitter(alpha = 0.3, width = 0.2, color = "darkgrey") + 
+  labs(title = "Rule Violations by Race",
+       x = "Race",
+       y = "Number of Infractions") +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+# Rule violation by Mental Health Treatment
+ggplot(cleaned, aes(x = as.factor(`Mental Health Treatment`), y = `Number Infractions`, fill = as.factor(`Mental Health Treatment`))) +
+  geom_boxplot(outlier.shape = NA, alpha = 0.7) + 
+  geom_jitter(alpha = 0.3, width = 0.2, color = "darkgrey") + 
+  labs(title = "Rule Violations by Race",
+       x = "Race",
+       y = "Number of Infractions") +
+  theme_minimal() +
+  theme(legend.position = "none")
+```
+## Removing 0 Infractions
+```{r}
+df2 <- cleaned
+
+df2 <- df2 %>%
+  filter(`Number Infractions` <=30) 
+
+median(df2$`Number Infractions`)
+
+violators_only <- df2 %>% filter(`Number Infractions` > 0)
+
+# Create a 'Violator' status
+df2$is_violator <- ifelse(df2$`Number Infractions` > 0, "Violator", "Non-Violator")
+```
+## EDA Continued
+```{r}
+
+
+ggplot(violators_only, aes(x = as.factor(num_diagnoses), y = `Number Infractions`, fill = as.factor(num_diagnoses))) + 
+  geom_boxplot(width = 0.1, outlier.shape = NA) +
+  scale_fill_viridis_d(option = "virdis", begin = 0.2, end = 0.8) +
+  labs(title = "Violation Intensity",
+       subtitle = "Only showing inmates with 1+ violations",
+       x = "Number of Diagnoses", y = "Count of Infractions", fill = "Number of Diagnoses") +
+  theme_minimal()
+ggsave("/Users/sophiekemprecos/Desktop/Capstone/Visuals/Violation_diagnoses.png", width = 8, height = 6, dpi = 300)
+
+df2 %>%
+  group_by(Race) %>%
+  summarise(mean_infractions = mean(`Number Infractions`, na.rm = TRUE)) %>%
+  ggplot(aes(x = reorder(Race, mean_infractions), y = mean_infractions, fill = Race)) +
+  geom_bar(stat = "identity") +
+  scale_fill_viridis_d(option = "viridis", begin = 0.2, end = 0.8) +
+  coord_flip() +
+  labs(title = "Average Infractions by Race",
+       x = "Race", y = "Mean Number of Infractions", color = "Racial Groups") +
+  theme_minimal()
+ggsave("/Users/sophiekemprecos/Desktop/Capstone/Visuals/Violation_by_race.png", width = 8, height = 6, dpi = 300)
+
+
+ggplot(df2, aes(x = as.factor(`Armed Forces`), fill = is_violator)) +
+  geom_bar(position = "fill") + 
+  scale_y_continuous(labels = scales::percent) +
+  scale_fill_viridis_d(option = "viridis", begin = 0.2, end = 0.8) + 
+  labs(title = "Probability of Any Violation by Number of Diagnoses",
+       x = "Number of Diagnoses", 
+       y = "Proportion of Inmates", 
+       fill = "Violation Status") +
+  theme_minimal()
+ggsave("/Users/sophiekemprecos/Desktop/Capstone/Visuals/Violation_by_armedforces.png", width = 8, height = 6, dpi = 300)
+
+ggplot(df2, aes(x = as.factor(num_diagnoses), fill = is_violator)) +
+  geom_bar(position = "fill") + 
+  scale_y_continuous(labels = scales::percent) +
+  scale_fill_viridis_d(option = "viridis", begin = 0.2, end = 0.8) + 
+  labs(title = "Probability of Any Violation by Number of Diagnoses",
+       x = "Number of Diagnoses", 
+       y = "Proportion of Inmates", 
+       fill = "Violation Status") +
+  theme_minimal()
+ggsave("/Users/sophiekemprecos/Desktop/Capstone/Visuals/Violation_by_numdiagnoeses.png", width = 8, height = 6, dpi = 300)
+
+ggplot(df2, aes(x = as.factor(offense_type), fill = is_violator)) +
+  geom_bar(position = "fill") + 
+  scale_y_continuous(labels = scales::percent) +
+  scale_fill_viridis_d(option = "mako", begin = 0.2, end = 0.8) + 
+  labs(title = "Probability of Rule Violations by Controlling Offense Type",
+       x = "Offense Type", 
+       y = "Percentage of Inmates",
+       fill = "Status") +
+  theme_minimal()
+ggsave("/Users/sophiekemprecos/Desktop/Capstone/Visuals/Violation_by_offense.png", width = 8, height = 6, dpi = 300)
+
+ggplot(df2, aes(x = Gender, y = `Number Infractions` + 1, fill = Gender)) +
+  geom_boxplot(outlier.shape = NA, alpha = 0.7) +
+  scale_y_log10() +
+  scale_fill_viridis_d(option = "mako", begin = 0.3, end = 0.7) +
+  labs(title = "Rule Violations by Gender",
+       y = "Number of Infractions (Log Scale)") +
+  theme_minimal()
+ggsave("/Users/sophiekemprecos/Desktop/Capstone/Visuals/Violation_by_gender.png", width = 8, height = 6, dpi = 300)
+
+```
+
+# Outlier removal
+```{r}
+top_20_violators <- cleaned %>%
+  slice_max(order_by = `Number Infractions`, n = 20)
+
+print(unique(top_20_violators$`Number Infractions`))
+
+cleaned <- cleaned %>%
+  filter(`Number Infractions` < 50)
+
+new_max <- max(cleaned$`Number Infractions`, na.rm = TRUE)
+cat("The new maximum number of infractions is:", new_max)
+```
+
+# Correlation Matrix
+```{r}
+cleaner <- cleaned %>% rename("Number of Diagnoses" = num_diagnoses, "Offense Type" = offense_type)
+heatmap_data <- cleaner %>%
+  dplyr::select(Race, `Number Infractions`, `Number of Diagnoses`, `Armed Forces`, `Times Arrested`, 
+                `Years of Education`, `ADD/ADHD`, Homeless, Children, Bipolar, 
+                Depression, Schizophrenia, PTSD, Anxiety, `Mental Health Treatment`, 
+                Alcoholism, `Alcohol/Drug Treatment`, Gender, `Offense Type`) %>%
+  mutate(across(everything(), ~ as.numeric(as.factor(.x)))) 
+
+corr_matrix <- cor(heatmap_data, use = "pairwise.complete.obs")
+corr_matrix[is.na(corr_matrix)] <- 0
+
+# Now the plot will work with hc.order = TRUE
+ggcorrplot(corr_matrix, 
+           hc.order = TRUE, 
+           type = "lower", 
+           lab = TRUE, 
+           lab_size = 2,
+           title = "Correlation Matrix of Inmate Risk Factors")
+ggsave("/Users/sophiekemprecos/Desktop/Capstone/Visuals/Heatmap.png", width = 8, height = 6, dpi = 300)
+infraction_cors <- corr_matrix["Number Infractions", ]
+
+infraction_summary <- data.frame(
+  Variable = names(infraction_cors),
+  Correlation = as.numeric(infraction_cors))
+
+# |r| > 0.1)
+top_k_predictors <- infraction_summary %>%
+  filter(Variable != "Number Infractions") %>%
+  mutate(AbsCorr = abs(Correlation)) %>%
+  arrange(desc(AbsCorr))
+
+print(top_k_predictors)
+```
+
+# Logistic Model
+```{r}
+cleaned <- cleaned %>%
+  mutate(any_severe_mh = ifelse(Bipolar == 1 | Depression == 1 | 
+                                 Schizophrenia == 1 | PTSD == 1 | 
+                                 Anxiety == 1, 1, 0))
+
+# Infractions > 1 OR (Any Severe Diagnosis == 1 AND num_diagnoses >= 3)
+cleaned$at_risk <- ifelse(cleaned$`Number Infractions` > 1 | 
+                                (cleaned$any_severe_mh == 1 | cleaned$num_diagnoses >= 3), 1, 0)
+
+table(cleaned$at_risk) # close to even split
+
+# All regressors included
+model1 <- glm(at_risk ~ Race + `Years of Education` + `ADD/ADHD` + 
+                    any_severe_mh + Gender + num_diagnoses + offense_type + Cocaine + Crack + Heroin + 
+                      Children + `Times Arrested` +
+                    `Mental Health Treatment` + Alcoholism, 
+                    family = binomial(link = "logit"), 
+                    data = cleaned)
+summary(model1)
+
+# Removed drug variables which have lots of missingness, removed severe mh and num diagnoses since that was the way we calculated at_risk
+model2 <- glm(at_risk ~ Race + `Years of Education` + `ADD/ADHD` + 
+                     Gender  + offense_type +  
+                      Children + `Times Arrested` +
+                    `Mental Health Treatment` + Alcoholism,
+                    family = binomial(link = "logit"), 
+                    data = cleaned)
+# summary(model2)
+
+# Dropped race bc its never been significant
+model3 <- glm(at_risk ~ `Years of Education` + `ADD/ADHD` + 
+                Gender + offense_type + Children + `Times Arrested` + 
+                `Mental Health Treatment` + Alcoholism,
+              family = binomial(link = "logit"), 
+              data = cleaned,
+              na.action = na.exclude) 
+summary(model3)
+
+# Add the predicted probabilities directly to your 'cleaned' dataframe
+cleaned$prob_at_risk <- predict(model3, type = "response")
+med_val <- median(cleaned$prob_at_risk, na.rm = TRUE)
+cleaned <- cleaned %>%
+  mutate(pred_risk_level = ifelse(prob_at_risk > med_val, "High Predicted Risk", "Low Predicted Risk"))
+
+group_profiles <- cleaned %>%
+  filter(!is.na(pred_risk_level)) %>%
+  group_by(pred_risk_level) %>%
+  summarise(
+    Avg_Infractions = mean(`Number Infractions`, na.rm = TRUE),
+    Avg_Diagnoses = mean(num_diagnoses, na.rm = TRUE),
+    Count = n())
+
+print(group_profiles)
+```
+
+# Analysis of the high risk group
+```{r}
+high_risk_group <- cleaned %>% filter(pred_risk_level == "High Predicted Risk")
+high_risk_group <- high_risk_group %>%
+  mutate(`Number Infractions` = ifelse(`Number Infractions` < 0, NA, `Number Infractions`))
+
+stage2_model <- glm.nb(`Number Infractions` ~ Race + num_diagnoses + `Armed Forces` + +
+                         `Times Arrested`+ `Years of Education`+ `ADD/ADHD`+ `Homeless`+ `Children`+ 
+                         `Mental Health Treatment`+ `Mental Health Treatment`:num_diagnoses+ Alcoholism
+                       + `Alcohol/Drug Treatment` + Alcoholism:`Alcohol/Drug Treatment` + Gender + offense_type, data = high_risk_group)
+summay(stage2_model)
+
+nrow
+library(DHARMa)
+sim_residuals <- simulateResiduals(fittedModel = stage2_model, n = 1000)
+plot(sim_residuals)
+
+```
+
+```{r}
+set.seed(123) 
+sample_size <- floor(0.8 * nrow(high_risk_group))
+train_ind <- sample(seq_len(nrow(high_risk_group)), size = sample_size)
+
+train_data <- high_risk_group[train_ind, ]
+test_data <- high_risk_group[-train_ind, ]
+
+train_model <- glm.nb(`Number Infractions` ~ Race + num_diagnoses + `Armed Forces` + +
+                         `Times Arrested`+ `Years of Education`+ `ADD/ADHD`+ `Homeless`+ `Children`+ 
+                         `Mental Health Treatment`+ `Mental Health Treatment`:num_diagnoses+Alcoholism
+                       + `Alcohol/Drug Treatment` + Gender + offense_type,
+                       data = train_data)
+
+# 3. Predict on both sets
+pred_train <- predict(train_model, newdata = train_data, type = "response")
+pred_test <- predict(train_model, newdata = test_data, type = "response")
+
+# 4. Calculate Root Mean Square Error (RMSE)
+rmse <- function(actual, predicted) sqrt(mean((actual - predicted)^2, na.rm = TRUE))
+
+cat("Training RMSE:", rmse(train_data$`Number Infractions`, pred_train), "\n")
+cat("Testing RMSE:", rmse(test_data$`Number Infractions`, pred_test), "\n")
+
+```
+
+
+# Negative Binomial (old)
+```{r}
+model_nb <- glm.nb(`Number Infractions` ~ Race + `Armed Forces` + `Marital Status` +`Times Arrested`+ `Years of Education`+ `ADD/ADHD`+ `Homeless`+ `Children`+ `Bipolar`+ Depression+ Schizophrenia+ PTSD+ Anxiety+ `Personality Disorder`+ Heroin + Cocaine + Meth + `Mental Health Treatment`+ Alcoholism+ `Alcohol/Drug Treatment`, data = cleaned)
+
+
+
+model_nb6<- glm.nb(`Number Infractions` ~ Race + num_diagnoses + `Armed Forces` + `Marital Status` +`Times Arrested`+ `Years of Education`+ `ADD/ADHD`+ `Homeless`+ `Children`+ `Bipolar`+ Depression+ Schizophrenia+ PTSD+ Anxiety+ Heroin + Cocaine + Meth + `Mental Health Treatment`+ `Mental Health Treatment`:num_diagnoses+Alcoholism+ `Alcohol/Drug Treatment` + Gender + offense_type, data = cleaned)
+summary(model_nb6)
+```
+
