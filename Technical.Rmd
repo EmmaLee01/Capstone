@@ -1,0 +1,210 @@
+---
+title: "Technical Report"
+author: "Emily Wu and Starr Mark"
+date: "2026-04-15"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(knitr)
+library(tidyr)
+library(dplyr)
+library(caret)
+library(kableExtra)
+library(MASS)
+library(performance)
+library(see)
+library(ggplot2)
+
+```
+
+
+# Results
+
+Our Final First Stage Model is as follows:
+
+$P(At Risk) = \beta_0+\beta_1Years of Education+\beta_2ADD/ADHD+\beta_3Gender:Male+\beta_4Offense:Other+\beta_5Offense:Property+\beta_6Offense:Public Order+\beta_7Offense:Unknown+\beta_8Offense:Violent+\beta_9Children+\beta_{10}Times Arrested+\beta_{11}Mental Health Treatment+\beta_{12}MentalHealthTreatment$
+
+#### FIXXXXXX LATER 
+
+After conducting a Likelihood-Ratio Test on our model, we find that our final model has a deviance score of 4685 on 12 degrees of freedom and a p-value less than 0.001. This model was fit on $n=15,450$ observations with 1708 dropped/deleted observations. Over 90% are due to alcoholism.
+
+This indicates our full model significantly outperformed the null model and the combination of clinical and demographic factors provides substantial predictive power for inmate infraction risk. 
+Overall, our model had a 73% classification accuracy (classification of inmates who had infractions or not)
+```{r, echo=F}
+cleaned2<-read.csv('cleaned2.csv')
+
+
+model3 <- glm(at_risk ~ `Years.of.Education` + `ADD.ADHD` + 
+                Gender + offense_type + Children + `Times.Arrested` + 
+                `Mental.Health.Treatment` + Alcoholism,
+              family = binomial(link = "logit"), 
+              data = cleaned2,
+              na.action = na.exclude) 
+
+
+
+cleaned2$binary_risk<-cleaned2$pred_risk_level
+cleaned2$binary_risk[cleaned2$binary_risk=="High Predicted Risk"] <- 1
+cleaned2$binary_risk[cleaned2$binary_risk=="Low Predicted Risk"] <- 0
+
+
+
+
+
+
+
+cm_data <- data.frame(
+  Classification = c("Predicted: Low Risk (0)", "Predicted: High Risk (1)"),
+  `Observed: No Infraction (0)` = c("5,361", "1,755"),
+  `Observed: At Risk (1)` = c("2,365", "5,969"),
+  check.names = FALSE
+)
+cm <- confusionMatrix(as.factor(cleaned2$binary_risk), as.factor(cleaned2$at_risk))
+conf_intervals <- suppressMessages(exp(confint(model3)))
+vars <- c("ADD.ADHD", "GenderMale", "Mental.Health.Treatment")
+conf_intervals <- suppressMessages(exp(confint(model3)))
+odds_ratios <- suppressMessages(exp(coef(model3)))
+vardf <- data.frame(
+  Variable = c("ADD/ADHD", "Male Gender", "Mental Health Treatment"),
+  Estimate = model3$coefficients[vars],
+  OR = odds_ratios[vars],
+  "Lower_CI" = conf_intervals[vars, 1],
+  "Upper_CI" = conf_intervals[vars, 2],
+  "Z_Value" = summary(model3)$coefficients[vars, "z value"],
+  row.names = NULL
+)
+vardf$"95% Confint OR" <- paste0("(", round(vardf$Lower_CI, 2), " - ", round(vardf$Upper_CI, 2), ")")
+
+acc  <- round(cm$overall["Accuracy"] * 100, 1)
+nir  <- round(cm$overall["AccuracyNull"] * 100, 1)
+pval <- signif(cm$overall["AccuracyPValue"], 3)
+
+
+
+
+kable(
+  cm_data,
+  booktabs = TRUE,
+  caption = "Stage 1 Confusion Matrix",
+  align = "lcc",
+  escape = FALSE
+) %>%
+  footnote(
+    general = "Overall Accuracy: 73.3% | Sensitivity: 75.3% | Specificity: 71.6% | P-Value: < .001 | No Information Rate (NIR): 53.9%",
+    threeparttable = TRUE
+  )
+
+
+
+
+```
+
+
+The model diagnostics state that the most significant predictors are ADD/ADHD, Male Gender, Times Arrested, and Mental Health Treatment. Out of these, the predictors with the largest effect size are ADD/ADHD with 1.33, Male Gender with -0.938, and Mental Health Treatment with 2.201. 
+
+```{r, echo = F}
+kable(vardf[c(1, 2, 3, 6, 7)]
+, caption = "Significant Predictors",
+          threeparttable = TRUE
+)
+```
+
+
+\newpage
+
+The final Second Stage Model is as follows:
+
+$ln(Infractions) = \beta_0+\beta_1Race:Black+\beta_2Race:Hispanic+\beta_3Race:Multiracial+\beta_4Race:Other+\beta_5Race:White+\beta_6NumberofDiagnoses+\beta_7ArmedForces+\beta_8TimesArrested+\beta_9YearsofEducation+\beta_{10}ADD/ADHD+\beta_{11}Homeless+\beta_{12}Children+\beta_{12}MentalHealthTreatment+\beta_{13}Alcoholism+\beta_{14}AlcoholTreatment+\beta_{15}Gender:Male+\beta_{16}+ \beta_{17}Offense:Other+\beta_{18}Offense:Property+\beta_{19}Offense:PublicOrder+\beta_{20}Offense:Unknown+\beta_{21}Offense:Violent+\beta_{22}NumberofDiagnoses*MentalHealthTreatment+\beta_{23}Alcoholism*Alcohol Treatment$
+
+Comparing the 2 models using their goodness-of-fit statistics, it is seen that a negative binomial model is more favorable with a lower AIC and Overdispersion statistic $(\phi)$. The negative binomial model was fitted on the subpopulation of $n = 7,619$ of those rated as "High Predicted Risk." This was determined by our previous logistic model of those who had a higher probability of having an infraction than the median value of the data set, which was 0.497. 105 observations were not counted, over 90% were deleted due to Race being unavailable. 
+
+
+```{r, echo=F}
+high_risk_group <- cleaned2 %>% filter(pred_risk_level == "High Predicted Risk")
+high_risk_group <- high_risk_group %>%
+  mutate(Number.Infractions = ifelse(Number.Infractions < 0, NA, Number.Infractions))
+
+stage2_model <- glm.nb(Number.Infractions ~ Race + num_diagnoses + Armed.Forces + +
+                         Times.Arrested+ Years.of.Education+ ADD.ADHD + Homeless+ Children+ 
+                         Mental.Health.Treatment+ Mental.Health.Treatment:num_diagnoses+ Alcoholism
+                       + Alcohol.Drug.Treatment + Alcoholism:Alcohol.Drug.Treatment + Gender + offense_type, data = high_risk_group)
+
+
+stage2_pois <- glm(Number.Infractions ~ Race + num_diagnoses + Armed.Forces + +
+                         Times.Arrested+ Years.of.Education+ ADD.ADHD + Homeless+ Children+ 
+                         Mental.Health.Treatment+ Mental.Health.Treatment:num_diagnoses+ Alcoholism
+                       + Alcohol.Drug.Treatment + Alcoholism:Alcohol.Drug.Treatment + Gender + offense_type, family = "poisson", data = high_risk_group)
+
+
+moddf<-data.frame(
+  Model = c("Poisson","Negative Binomial"),
+  AIC = c(stage2_pois$aic, stage2_model$aic),
+  Deviance = c(stage2_pois$null.deviance-stage2_pois$deviance, stage2_model$null.deviance-stage2_model$deviance),
+  df = c(23, 23),
+  Overdispersion = c(sum(residuals(stage2_pois, type = "pearson")^2) / df.residual(stage2_pois), stage2_model$theta)
+)
+
+kable(moddf, caption = "Model Comparison",
+          threeparttable = TRUE
+)
+
+```
+
+
+
+
+In our model, the most significant predictors are ADD/ADHD, Times Arrested, Children, Mental Health Treatment, Alcoholism, and an Unknown Offense Type. The variables with the largest effect size were ADD/ADHD with a 0.605 Coefficient and Unknown Offense type with -0.513 coefficient. 
+
+
+```{r, echo = F}
+vardf2<- data.frame(
+  Variable = c("ADD/ADHD", "Times Arrested", "Children", "Mental Health Treatment", "Alcoholism", "Offense Type: Unknown"),
+  Estimate = c(stage2_model$coefficients["ADD.ADHD"],stage2_model$coefficients["Times.Arrested"],stage2_model$coefficients["Children"],stage2_model$coefficients["Mental.Health.Treatment"],stage2_model$coefficients["Alcoholism"],stage2_model$coefficients["offense_typeUnknown"] ),
+  "Z-Value" = c(summary(stage2_model)$coefficients[11,3],summary(stage2_model)$coefficients[9,3],summary(stage2_model)$coefficients[13,3], summary(stage2_model)$coefficients[14,3], summary(stage2_model)$coefficients[15,3], summary(stage2_model)$coefficients[21,3]),
+
+  "P-Value" = c(summary(stage2_model)$coefficients[11,4],summary(stage2_model)$coefficients[9,4],summary(stage2_model)$coefficients[13,4], summary(stage2_model)$coefficients[14,4], summary(stage2_model)$coefficients[15,4], summary(stage2_model)$coefficients[21,4]),
+  row.names = NULL
+)
+
+kable(vardf2, caption = "Model Statistics",
+          threeparttable = TRUE
+)
+```
+
+
+
+
+
+```{r}
+fittedN<-model.frame(stage2_model)
+
+
+count_comp <- data.frame(
+  Observed = fittedN$Number.Infractions,
+  Fitted = predict(stage2_model)
+) %>%
+  # Round fitted values to nearest integer to compare counts
+  mutate(Fitted = round(Fitted)) %>%
+  gather(Type, Value) %>%
+  filter(Value <= 10) # Filter to low counts (where most action happens)
+
+# 2. Plot the distributions
+ggplot(count_comp, aes(x = Value, fill = Type)) +
+  geom_bar(position = "dodge") +
+  labs(
+    title = "Observed vs. Fitted Counts (Negative Binomial)",
+    x = "Number of Events",
+    y = "Frequency"
+  ) +
+  theme_minimal()
+check_predictions(stage2_model)
+```
+
+
+
+
+
+
+
