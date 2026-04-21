@@ -16,22 +16,73 @@ library(MASS)
 library(performance)
 library(see)
 library(ggplot2)
+library(pROC)
+
 
 ```
+
+# Background and Research Question
+
+In the 1st phase of our analysis, we sought to identify which variables best distinguish high and low predicted infraction risk, investigating potentially influential demographic, criminal justice, and socioeconomic characteristics (gender, years of education, offense type, number of children, etc.), and specifically whether inmates received mental health treatment (MHT) post-admission.
+
+In the 2nd phase of our analysis, we sought to reveal which demographic and clinical factors drive higher infraction counts among high-risk individuals and identify potential gaps in prison mental health services that could lead to policy change(s).
+
+Statistically, the research questions are important because they test which variables are most useful for infraction risk prediction or explanation in the presence of several predictors at a time. They also help to distinguish prediction from explanation, which is important because a variable can statistically be associated with risk without being a direct cause.
+
+Substantively, the research questions are important because infractions made affect prison safety, management, expense, and inmate outcomes. Investigating demographic, criminal justice, and mental health treatment factors (among others) can identify which groups are at higher risk and whether prison mental health services are reaching the people who need them.
+
+
+# Data Description
+
+We used data from the Survey of Prison Inmates (SPI), United States, 2016 (ICPSR 37692) Data Set for Public-Use. Data was collected through in-person interviews with prisoners incarcerated in state correctional facilities, as well as from inmate records, intake forms, surveys, questionnaires, screenings, etc. 
+
+The Principal Investigator of this study was the Bureau of Justice Statistics Conducted by the Bureau of Justice Statistics, this was conducted such that policymakers could address shortcomings of correctional institutions. Sample selection was done carefully, with a two stage probability sample, where about 20,000 inmates were chosen to represent about 1.5 Million inmates within the prison system. Data was collected using Computer-Assisted Personal Interviewing to assist with human and data entry error with a relatively high response rate (70%). 
+
+Questions regarding personal feelings on past wrongdoings may lead to response biases as inmates may feel they want to lie to “look good.” Inmates were assured that answers were completely anonymous and that their identity was protected, to reduce bias. 
+
+Mental Health Treatment variables regarding diagnosis were most important to our analysis, as we fixed those variables on our 2nd stage model. 
+
+Many of the variables were suppressed due to privacy reasons and therefore had to be removed because they were unuseable. Additionally, all categorical variables had extra descriptions, i.e. "(1) 1 = Yes" as an observation, and therefore must be flattened. Additionally, many observations were missing for various reasons with codes to specify why, but for our purposes, we flattened them all to "0" or NA as the reason for missing was not relevant to this project. 
+
+# Methods
+
+Our analysis uses a two-stage modeling approach to answer our research questions. In the first stage, we implement a logistic regression model to classify inmates into “high” and “low” predicted risk groups based on whether they are at risk of committing rule violations. This model uses demographic, criminal justice, and mental health-related variables to estimate the probability that an individual falls into the at-risk category. By transforming the outcome into a binary indicator, this stage allows us to identify which characteristics are most predictive of elevated violation risk and to create a clear distinction between higher and lower risk individuals.
+
+In the second stage of our analysis, we used a negative binomial regression model to the subset of inmates classified as high predicted risk. In this stage, the outcome variable is the number of rule violations, which is a count variable with a wide range of possible values. The negative binomial model allows us to estimate how individual characteristics are associated with variation in the number of infractions within this higher-risk group. This two-stage approach allows us to first identify who is at risk and then more precisely model the intensity of rule violations among those individuals.
+
+The negative binomial regression is the best fit for our second stage because our outcome variable is a count of rule violations that shows clear overdispersion. When we initially used a Poisson model, we found that the model had a much higher AIC and did not appropriately account for the variance in the data, which was much larger than the mean. Because the Poisson model assumes that the mean and variance are equal, this led to a poor fit for our data. The negative binomial model relaxes this assumption and allows the variance to exceed the mean, making it more appropriate for modeling the distribution of infractions in our sample.
+
+Additionally, the structure of our data includes a high number of observations at or near zero, along with a smaller number of individuals with a large number of violations. The negative binomial model is better suited to handle this type of dispersion and skewness, allowing for more accurate and stable coefficient estimates. This is particularly important given the wide range of possible outcomes for the number of infractions.
+
+We also considered alternative modeling approaches. A Poisson regression was initially explored, but ultimately rejected due to its poor model fit and inability to handle overdispersion. We also considered using a single-stage model rather than a two-stage approach, but this would have forced us to model both the probability of being at risk and the number of infractions simultaneously, which could reduce interpretability and model accuracy given the zero-inflated nature of the data. By separating the process into two stages, we are able to more clearly distinguish between the factors that predict risk and the factors that influence the number of violations among high-risk individuals. Mental Health variables were treated as constant in all second fitted models and therefore limited automatic iterative techniques for choosing best subset of predictor variables in a regression model. 
+
+The first stage of the analysis using a logistic regression. The logistic regression relies on the assumption of there being a linear relationship between the outcome variable, if a prisoner is at risk, and the independent variables. These independent variables are our regressors of age, gender, race, military status, offense type, mental health treatment, and diagnoses. In order to use the logistics regression to evaluate the relationship, the sample size must be large. In our sample we begin with over 20,000 inmates. The regression uses 15,000 inmate records for data which are complete across the variables used which is a very large model sampling size. 
+
+In a logistic regression the outcome variable has to be binary, with a 0 or 1 outcome indicator. To achieve this we created the “at risk” variable. This variable captures if prisoners are expected to commit rule violations, sorted into a yes or no grouping associated with a 1 and 0. We also do not believe that the observations are correlated at all. Each inmate should be an independent, randomly sampled unit from across the state prison population. There are no federal prisoners represented in our data, but this sample of people should be representative of the larger prison population and not lead to biased results from a dependence in observation responses. To avoid multicollinearity in the logistic model, we reviewed exploratory data analysis to evaluate if any variables had a strong relationship with each other. We found that bipolar disorder and a depression diagnosis were highly correlated with each other. The depression variable was noticeably correlated with the other diagnoses, this may be due to a high presence of depression found across those with other mental health issues.
+
+One assumption the negative binomial has is independence of the observations. This is mainly relevant to those working in longitudinal panel data sets. This is not a concern for our model as we have snapshot data of prison inmates limited to one year compared to a multi-year tracking panel. Negative binomial models perform best in large sample sizes. Small sample sizes with highly dispersed results will lead to inaccurate coefficient estimates. Given our data set has more than 10,000 observations, we feel the assumption of large sample sizes is met.
+
+The negative binomial regression also can not be used if there is a high presence of multicollinearity. We performed exploratory data analysis to look at inter-variable correlation rates. To ensure that no two variables were accounting for each other we checked a correlation matrix and heatmap of the explanatory variables and did not include those with correlations above |0.7|. This was done by evaluating the different explanatory plots from the logistic regression and then checked the VIF levels to ensure they were below 10.
+
+
 
 
 # Results
 
 Our Final First Stage Model is as follows:
 
-$P(At Risk) = \beta_0+\beta_1Years of Education+\beta_2ADD/ADHD+\beta_3Gender:Male+\beta_4Offense:Other+\beta_5Offense:Property+\beta_6Offense:Public Order+\beta_7Offense:Unknown+\beta_8Offense:Violent+\beta_9Children+\beta_{10}Times Arrested+\beta_{11}Mental Health Treatment+\beta_{12}MentalHealthTreatment$
+$logit(P(At Risk = 1)) = \beta_0+\beta_1Years of Education+\beta_2ADD/ADHD+\beta_3Gender:Male+\beta_4Offense:Other+\beta_5Offense:Property+\beta_6Offense:Public Order+\beta_7Offense:Unknown+\beta_8Offense:Violent+\beta_9Children+\beta_{10}Times Arrested+\beta_{11}Mental Health Treatment+\beta_{12}Alcoholism$
 
-#### FIXXXXXX LATER 
+The first stage of analysis employed logistic regression, a binomial family logit link model. The reported coefficients, $\beta$, represent the change in log-odds of being classified as "at risk" for every one-unit increase in the predictor variable. These estimates are modeled according to the logit link function:
 
-After conducting a Likelihood-Ratio Test on our model, we find that our final model has a deviance score of 4685 on 12 degrees of freedom and a p-value less than 0.001. This model was fit on $n=15,450$ observations with 1708 dropped/deleted observations. Over 90% are due to alcoholism.
+$logit(p) = \ln(\frac{p}{1-p}) = \beta_0+\beta_1x_1...\beta_kx_k$
+
+where $p$ is the probability of risk classification
+
+After conducting a Likelihood-Ratio Test on our model, we find that our final model has a deviance score (null vs residual) of 4685 on 12 degrees of freedom and a p-value less than 0.001. This model was fit on $n=15,450$ observations with 1708 dropped/deleted observations. Over 90% are due to alcoholism.
 
 This indicates our full model significantly outperformed the null model and the combination of clinical and demographic factors provides substantial predictive power for inmate infraction risk. 
-Overall, our model had a 73% classification accuracy (classification of inmates who had infractions or not)
+Overall, our model had a 73% classification accuracy (classification of inmates who had infractions or not) and with an AUC of 0.797, it demonstrates a good amount of discriminative ability, correctly distinguishing between at risk and non-at risk individuals about 80% of the time when presented with a random pair of one positive and one negative case. 
 ```{r, echo=F}
 cleaned2<-read.csv('cleaned2.csv')
 
@@ -75,7 +126,8 @@ vardf <- data.frame(
   "Z_Value" = summary(model3)$coefficients[vars, "z value"],
   row.names = NULL
 )
-vardf$"95% Confint OR" <- paste0("(", round(vardf$Lower_CI, 2), " - ", round(vardf$Upper_CI, 2), ")")
+
+vardf$"95% Confint IRR" <- paste0("(", round(vardf$Lower_CI, 2), " - ", round(vardf$Upper_CI, 2), ")")
 
 acc  <- round(cm$overall["Accuracy"] * 100, 1)
 nir  <- round(cm$overall["AccuracyNull"] * 100, 1)
@@ -95,12 +147,22 @@ kable(
     general = "Overall Accuracy: 73.3% | Sensitivity: 75.3% | Specificity: 71.6% | P-Value: < .001 | No Information Rate (NIR): 53.9%",
     threeparttable = TRUE
   )
+pred_probs <- predict(model3, type = "response", na.action = na.exclude)
+roc_obj <- suppressMessages(roc(
+  response = cleaned2$at_risk[!is.na(pred_probs)],
+  predictor = pred_probs[!is.na(pred_probs)]
+))
 
+suppressMessages(plot(roc_obj,
+     col = "#39ae85",
+     lwd = 2,
+     main = paste("ROC Curve (AUC =", round(auc(roc_obj), 3), ")"),
+     print.auc = TRUE,
+     print.auc.xy = c(0.4, 0.2)))
 
-
+abline(a = 0, b = 1, lty = 2, col = "gray50")
 
 ```
-
 
 The model diagnostics state that the most significant predictors are ADD/ADHD, Male Gender, Times Arrested, and Mental Health Treatment. Out of these, the predictors with the largest effect size are ADD/ADHD with 1.33, Male Gender with -0.938, and Mental Health Treatment with 2.201. 
 
@@ -116,9 +178,13 @@ kable(vardf[c(1, 2, 3, 6, 7)]
 
 The final Second Stage Model is as follows:
 
-$ln(Infractions) = \beta_0+\beta_1Race:Black+\beta_2Race:Hispanic+\beta_3Race:Multiracial+\beta_4Race:Other+\beta_5Race:White+\beta_6NumberofDiagnoses+\beta_7ArmedForces+\beta_8TimesArrested+\beta_9YearsofEducation+\beta_{10}ADD/ADHD+\beta_{11}Homeless+\beta_{12}Children+\beta_{12}MentalHealthTreatment+\beta_{13}Alcoholism+\beta_{14}AlcoholTreatment+\beta_{15}Gender:Male+\beta_{16}+ \beta_{17}Offense:Other+\beta_{18}Offense:Property+\beta_{19}Offense:PublicOrder+\beta_{20}Offense:Unknown+\beta_{21}Offense:Violent+\beta_{22}NumberofDiagnoses*MentalHealthTreatment+\beta_{23}Alcoholism*Alcohol Treatment$
+$ln(Infractions) = \beta_0+\beta_1Race:Black+\beta_2Race:Hispanic+\beta_3Race:Multiracial+\beta_4Race:Other+\beta_5Race:White+\beta_6NumberofDiagnoses+\beta_7ArmedForces+\beta_8TimesArrested+\beta_9YearsofEducation+\beta_{10}ADD/ADHD+\beta_{11}Homeless+\beta_{12}Children+\beta_{13}MentalHealthTreatment+\beta_{14}Alcoholism+\beta_{15}AlcoholTreatment+\beta_{16}Gender:Male+\beta_{17}+ \beta_{18}Offense:Other+\beta_{19}Offense:Property+\beta_{20}Offense:PublicOrder+\beta_{21}Offense:Unknown+\beta_{22}Offense:Violent+\beta_{23}NumberofDiagnoses*MentalHealthTreatment+\beta_{24}Alcoholism*Alcohol Treatment$
 
-Comparing the 2 models using their goodness-of-fit statistics, it is seen that a negative binomial model is more favorable with a lower AIC and Overdispersion statistic $(\phi)$. The negative binomial model was fitted on the subpopulation of $n = 7,619$ of those rated as "High Predicted Risk." This was determined by our previous logistic model of those who had a higher probability of having an infraction than the median value of the data set, which was 0.497. 105 observations were not counted, over 90% were deleted due to Race being unavailable. 
+The second stage utilized negative binomial regression with a log link to analyze the infraction frequency within the high-risk subgroup. The coefficients are reported on the log-count scale. Due to the model using the natural log link, the relationship is such:
+
+$\ln(\mu) =\beta_0+\beta_1x_1...\beta_kx_k$
+
+Comparing the 2 models using their goodness-of-fit statistics, it is seen that a negative binomial model is more favorable with a lower AIC and Overdispersion statistic $(\phi)$. The negative binomial model was fitted on the subpopulation of $n = 7,619$ of those rated as "High Predicted Risk." This was determined by our previous logistic model of those who had a higher predicted probability of having an infraction than the median value of the data set, which was 0.497. 105 observations were not counted, over 90% were deleted due to Race being unavailable. 
 
 
 ```{r, echo=F}
@@ -153,20 +219,23 @@ kable(moddf, caption = "Model Comparison",
 ```
 
 
-
-
 In our model, the most significant predictors are ADD/ADHD, Times Arrested, Children, Mental Health Treatment, Alcoholism, and an Unknown Offense Type. The variables with the largest effect size were ADD/ADHD with a 0.605 Coefficient and Unknown Offense type with -0.513 coefficient. 
 
 
 ```{r, echo = F}
+ci_irr <- exp(confint.default(stage2_model))
+
 vardf2<- data.frame(
   Variable = c("ADD/ADHD", "Times Arrested", "Children", "Mental Health Treatment", "Alcoholism", "Offense Type: Unknown"),
   Estimate = c(stage2_model$coefficients["ADD.ADHD"],stage2_model$coefficients["Times.Arrested"],stage2_model$coefficients["Children"],stage2_model$coefficients["Mental.Health.Treatment"],stage2_model$coefficients["Alcoholism"],stage2_model$coefficients["offense_typeUnknown"] ),
-  "Z-Value" = c(summary(stage2_model)$coefficients[11,3],summary(stage2_model)$coefficients[9,3],summary(stage2_model)$coefficients[13,3], summary(stage2_model)$coefficients[14,3], summary(stage2_model)$coefficients[15,3], summary(stage2_model)$coefficients[21,3]),
-
-  "P-Value" = c(summary(stage2_model)$coefficients[11,4],summary(stage2_model)$coefficients[9,4],summary(stage2_model)$coefficients[13,4], summary(stage2_model)$coefficients[14,4], summary(stage2_model)$coefficients[15,4], summary(stage2_model)$coefficients[21,4]),
+  "Std Error" = c(summary(stage2_model)$coefficients[11,2],summary(stage2_model)$coefficients[9,2],summary(stage2_model)$coefficients[13,2], summary(stage2_model)$coefficients[14,2], summary(stage2_model)$coefficients[15,2], summary(stage2_model)$coefficients[21,2]),
+  "P-Value" = c("<0.0001","<0.0001","<0.0001", round(summary(stage2_model)$coefficients[14,4], 5), round(summary(stage2_model)$coefficients[15,4], 5), round(summary(stage2_model)$coefficients[21,4], 5)),
   row.names = NULL
 )
+ciirr_sub <- ci_irr[c("ADD.ADHD", "Times.Arrested", "Children", "Mental.Health.Treatment", "Alcoholism", "offense_typeUnknown"),]
+
+vardf2$"95% Confint IRR" <- paste0("(", round(ciirr_sub[,1], 3), " - ", round(ciirr_sub[,2], 3), ")")
+
 
 kable(vardf2, caption = "Model Statistics",
           threeparttable = TRUE
@@ -177,33 +246,54 @@ kable(vardf2, caption = "Model Statistics",
 
 
 
-```{r}
+```{r, echo = F, message=FALSE, warning=FALSE}
 fittedN<-model.frame(stage2_model)
 
 
-count_comp <- data.frame(
-  Observed = fittedN$Number.Infractions,
-  Fitted = predict(stage2_model)
-) %>%
-  # Round fitted values to nearest integer to compare counts
-  mutate(Fitted = round(Fitted)) %>%
-  gather(Type, Value) %>%
-  filter(Value <= 10) # Filter to low counts (where most action happens)
 
-# 2. Plot the distributions
-ggplot(count_comp, aes(x = Value, fill = Type)) +
-  geom_bar(position = "dodge") +
-  labs(
-    title = "Observed vs. Fitted Counts (Negative Binomial)",
-    x = "Number of Events",
-    y = "Frequency"
-  ) +
-  theme_minimal()
 check_predictions(stage2_model)
+
+obs_counts <- as.data.frame(table(fittedN$Number.Infractions)) %>%
+  mutate(Var1 = as.numeric(as.character(Var1)), prop = Freq / sum(Freq))
+
+
+
+
+fit_counts <- as.data.frame(table(round(predict(stage2_model, type = "response")))) %>%
+  mutate(Var1 = as.numeric(as.character(Var1)), prop = Freq / sum(Freq))
+
+suppressMessages(ggplot() +
+  geom_col(data = obs_counts %>% filter(Var1 <= 15), 
+           aes(x = Var1, y = prop), fill = "#39ae85", alpha = 0.6) +
+  geom_line(data = fit_counts %>% filter(Var1 <= 15), 
+            aes(x = Var1, y = prop), color = "#0077B5", linewidth = 1) +
+  geom_point(data = fit_counts %>% filter(Var1 <= 15), 
+             aes(x = Var1, y = prop), color = "#0077B5", size = 2) +
+  labs(x = "Number of Infractions", y = "Proportion", 
+       title = "Observed vs Fitted Proportions") +
+  theme_minimal())
+
 ```
 
 
 
+## Interpretation
+
+Our Stage One results indicate that high‑risk classification in this sample is driven primarily by clinical factors and criminal justice history rather than socioeconomic variables. An ADD/ADHD diagnosis and receipt of post‑admission mental health treatment are the strongest predictors of being labeled high risk. The coefficient for ADD/ADHD ($\approx$ 1.34) corresponds to an odds ratio of about 3.8, meaning individuals with ADD/ADHD have nearly four times the odds of being classified as high risk compared to those without this diagnosis, holding other covariates constant. The coefficient for mental health treatment ($\approx$ 2.02; odds ratio $\approx$ 7.5) indicates that inmates who receive mental health treatment post‑admission have more than seven times the odds of being classified as high risk relative to those who do not receive treatment. Criminal justice variables also play an important role: each additional prior arrest is associated with a modest but statistically significant increase in the odds of high‑risk classification (about 1–2% per arrest, cumulating over many arrests), and each additional child is associated with roughly a 9% increase in the odds of high‑risk status. Property and public‑order offenses exhibit higher odds of high‑risk classification than the reference offense type, while years of education are not significantly related to risk status. Notably, the coefficient for male gender is negative and large in magnitude (odds ratio $\approx$ 0.39), implying that, conditional on diagnoses, treatment, offense type, and criminal history, males in our sample are less likely than the reference gender category to be classified as high risk.
+In Stage 2, we restricted the sample to inmates classified as “High Predicted Risk” and modeled the count of institutional infractions using a negative binomial regression. Within this high‑risk subgroup, both structural disadvantage and clinical burden are central determinants of infraction counts. Each additional prior arrest and each additional mental health diagnosis are associated with approximately a 7% increase in the expected number of infractions (incidence‑rate ratios $\approx$ 1.07), suggesting that deeper criminal justice involvement and greater psychiatric complexity are linked to more institutional misconduct. In contrast, years of education are protective once we condition on being high risk: each additional year of schooling is associated with about a 7% reduction in expected infractions (IRR $\approx$ 0.93), implying that more educated high‑risk inmates accumulate fewer infractions. Alcoholism is associated with substantially higher infraction counts (IRR $\approx$ 1.34), whereas ADD/ADHD is no longer a significant predictor once we restrict to the high‑risk group. Demographically, male inmates have higher infraction counts than the reference gender group (IRR $\approx$ 1.5), and Black inmates exhibit markedly higher infraction counts than the reference race category (IRR on the order of 2.8), indicating large racial disparities in disciplinary outcomes among high‑risk inmates even after adjustment for clinical and criminal‑history covariates. Offense type is less influential in Stage 2; most categories are not significantly associated with infraction counts, with the exception of an “unknown” offense type that is associated with fewer infractions.
+
+
+Treatment variables display different patterns. Mental health treatment remains positively associated with infraction counts among high‑risk inmates. The coefficient of roughly 0.31 (IRR $\approx$ 1.37) indicates that treated high‑risk inmates have about 37% more infractions than untreated high‑risk inmates, conditional on diagnoses and other controls. An interaction between the number of diagnoses and mental health treatment is small and non-significant, suggesting that mental health treatment does not materially alter the relationship between diagnostic burden and infractions in our data. By contrast, alcohol/drug treatment shows a clinically meaningful interaction with alcoholism. While the main effect of alcohol/drug treatment is negligible overall, the Alcoholism × Alcohol/Drug Treatment interaction term is negative and statistically significant (IRR $\approx$ 0.76), indicating that among inmates with alcoholism, those who receive alcohol/drug treatment have approximately 24% fewer expected infractions than alcoholic inmates who do not receive such treatment.
+
+
+Our first research question asked which variables best distinguish inmates with high versus low predicted infraction risk, with particular interest in demographic, criminal justice, and socioeconomic characteristics, and in whether inmates received mental health treatment post‑admission. The Stage 1 logistic regression results provide a clear answer. High‑risk classification is primarily shaped by clinical and justice‑system variables—ADD/ADHD, alcoholism, receipt of mental health treatment, number of prior arrests, and offense type—rather than by socioeconomic status as proxied by years of education. Mental health treatment is strongly and positively associated with high‑risk status, implying that mental health services are being targeted toward inmates whom the system already identifies as behaviorally or clinically high risk. Gender and family structure also contribute: males are less likely to be flagged as high risk once other factors are controlled, and inmates with more children are more likely to be classified as high risk. These findings address the first stage of our questions by demonstrating which factors the model uses to separate high‑ and low‑risk inmates and how mental health treatment is distributed across those groups.
+Our second research question focused on the determinants of infraction severity within the high‑risk group and the extent to which patterns in mental health and substance‑use treatment reveal potential gaps in services. The Stage 2 negative binomial model speaks directly to this. Within the high‑risk subgroup, higher infraction counts are associated with more prior arrests, more mental health diagnoses, alcoholism, lower levels of education, male gender, and Black race. Thus, our results identify a set of demographic and clinical factors—especially cumulative diagnostic burden and substance‑use disorders—that drive higher infraction risk among already high‑risk inmates. The treatment variables further inform our understanding of potential gaps. Mental health treatment is highly concentrated among inmates with greater clinical and behavioral severity and is positively associated with infractions, which is consistent with severity‑driven selection into services rather than clear behavioral improvement. In contrast, the interaction between alcoholism and alcohol/drug treatment suggests a potentially beneficial effect of substance‑use services among those with alcoholism, as treated alcoholic inmates have fewer infractions than untreated alcoholic inmates. These patterns address our second question by highlighting both who is most at risk within the high‑risk population and where current mental health and substance‑use services may or may not be reducing that risk.
+
+
+Based on these models, we conclude that high‑risk classification in this facility is closely tied to specific clinical conditions and criminal‑history indicators. Inmates with ADD/ADHD, alcoholism, more arrests, more children, and certain offense types are substantially more likely to be flagged as high risk, whereas years of education do not play a meaningful role at the classification stage. Among those already classified as high risk, the intensity of institutional misconduct is shaped by cumulative mental health burden, substance‑use status, criminal justice history, and structural disadvantage. In particular, additional diagnoses and prior arrests are associated with more infractions, alcoholism is a strong risk factor, and more years of education are associated with fewer infractions. The higher infraction rates observed among male and Black high‑risk inmates point to important gender and racial disparities in disciplinary outcomes that warrant further investigation.
+
+
+With respect to services, our findings suggest that mental health treatment is being targeted toward the highest‑risk inmates but, in these observational models, is not associated with lower infraction counts; the positive association likely reflects confounding by severity rather than a harmful effect of treatment. By contrast, alcohol/drug treatment appears to be behaviorally beneficial within the subgroup of inmates with alcoholism, as indicated by the significant interaction term. Taken together, these results support policy recommendations to intensify screening and treatment for alcohol use disorders among high‑risk inmates, to expand or strengthen education‑related programming for this population, to re‑examine the design and delivery of mental health services with respect to behavioral outcomes, and to scrutinize racial and gender disparities in disciplinary practices and infraction recording.
 
 
 
