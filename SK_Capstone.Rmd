@@ -444,7 +444,7 @@ summary(model_nb6)
 #Work
 
 ```{r}
-vars <- c("at_risk", "Years.of.Education", "ADD.ADHD", "Gender", 
+vars3 <- c("at_risk", "Years.of.Education", "ADD.ADHD", "Gender", 
           "offense_type", "Children", "Times.Arrested", 
           "Mental.Health.Treatment", "Alcoholism")
 
@@ -464,6 +464,7 @@ colSums(is.na(cleaned2[, vars2]))
 
 ```{r}
 high_risk_group[is.na(high_risk_group$Race),]
+colSums(is.na(high_risk_group[, vars2]))
 
 ```
 
