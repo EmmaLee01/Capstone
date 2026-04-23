@@ -1,0 +1,65 @@
+---
+title: "Analysis of State Prison Inmates"
+author: "Hannah V., Sophie K., Emily W., & Starr M."
+date: "April 23, 2026"
+logoleft_name: "bars.png"
+logoright_name: "MH.png"
+primary_colour: "#F87E1B"
+title_textcol: "#FFDDBF"
+body_textcol: "#913526"
+institute: "University of Virginia"
+body_bgcol: "#C4ECFF"
+poster_height: "36in"
+poster_width: "48in"
+column_numbers: 4
+font_family: Garamond
+output:
+  posterdown::posterdown_html
+---
+
+# Introduction and Data 
+
+**Background**<br>
+Rule violations during incarceration reflect both inmate wellbeing and institutional safety. This project uses rule violations as an early signal of risk, shifting attention away from only post‑release outcomes toward what happens during prison sentences. Our goal is to show where mental health services and other supports could most reduce infractions and improve conditions for incarcerated people.
+
+**Research Questions**<br>
+We focus on two main questions:
+
+<u>Which demographic, criminal history, and clinical factors are associated with higher infraction risk?</u>
+
+<u>How do mental health diagnoses and in‑prison mental health treatment relate to that risk, and do current services appear to reach those at highest risk?</u>
+
+**Data**<br>
+We use the _2016 Survey of Prison Inmates (SPI), United States (ICPSR 37692)_, a public‑use survey of state prisoners. About 20,000 inmates were selected through a two‑stage probability sample to represent roughly 1.5 million state prisoners nationwide. Data come from in‑person, computer‑assisted interviews and linked records, with anonymity protections and a relatively high response rate.
+
+<u>**Key Variables**</u><br>
+Our analysis focuses on:
+
+**Mental health**: number of mental health diagnoses (severity proxy) and indicators of receiving mental health treatment during incarceration.
+
+**Substance use**: indicators of alcohol abuse and participation in alcohol treatment programs.
+
+**Social and criminal history**: education, prior arrests, and other demographic and offense characteristics used as controls.
+
+
+# Methods of Analysis {.mybreak}
+
+BLAH BLAH BLAH
+
+
+# Results {.mybreak}
+
+BLAH BLAH BLAH
+
+# Data visualizations 
+
+```{r, echo = F, warning = F, message=F}
+library(tidyverse)
+
+ggplot(mtcars, aes(x=hp, y = mpg)) + geom_point()
+```
+
+
+# Interpretations {.mybreak}
+
+BLAH BLAH BLAH
