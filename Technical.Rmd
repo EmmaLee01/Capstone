@@ -55,63 +55,30 @@ Many of the variables were suppressed due to privacy reasons and therefore had t
 We conducted exploratory data analysis to further our understanding of the variables in our data set. Using data visualizations of the distribution of variables and correlation matrices allowed us to see the range of outcomes for prison inmates across variables like education, mental health treatment, and gender. Identifying if there are differences in sub groups was informative to seeing the variation across risk groups of inmates for prison violations.
 
 ```{r, include=FALSE}
-cleaned<-read.csv("cleaned.csv")
-clean_survey_num <- function(x) {
-  num <- as.numeric(gsub(".*\\((-?\\d+)\\).*", "\\1", as.character(x)))
-  return(ifelse(num == 2, 0, ifelse(num < 0, NA, num)))
-}
+library(dplyr)
+library(ggplot2)
+library(MASS)
+library(viridis)
+library(ggcorrplot)
+library(dplyr)
+library(fastDummies)
 
-vars_to_clean <- c("Armed Forces", "ADD/ADHD", "Homeless", "Children", 
-                   "Bipolar", "Depression", "Schizophrenia", "PTSD", "Anxiety", 
-                   "Personality Disorder", "Other Diagnosis", "Mental Health Treatment", 
-                   "Alcoholism", "Cocaine", "Crack", "Heroin", "PCP", "Ecstasy", 
-                   "Meth", "Alcohol/Drug Treatment")
-
-cleaned <- cleaned %>%
-  mutate(across(all_of(vars_to_clean), ~ clean_survey_num(.)))
-
-# Years of Ed different from other vars
-cleaned$`Years of Education` <- as.numeric(gsub(".*\\((-?\\d+)\\).*", "\\1", as.character(cleaned$`Years of Education`)))
-cleaned$`Years of Education` <- ifelse(cleaned$`Years of Education` < 0, NA, cleaned$`Years of Education`)
-
-cleaned <- cleaned %>%
-  mutate(Race = case_when(
-    Race %in% c("Native Hawaiian", "American Indian", "Other Race") ~ "Other",
-    TRUE ~ as.character(Race))) %>%
-  mutate(num_diagnoses = rowSums(across(
-    c(Bipolar, Depression, Schizophrenia, PTSD, Anxiety, `Personality Disorder`)),
-    na.rm = TRUE))
-
-cleaned$Race <- factor(cleaned$Race)
-
-cleaned <- cleaned %>%
-  mutate(any_severe_mh = ifelse(Bipolar == 1 | Depression == 1 | 
-                                 Schizophrenia == 1 | PTSD == 1 | 
-                                 Anxiety == 1, 1, 0))
-
-# Infractions > 1 OR (Any Severe Diagnosis == 1 AND num_diagnoses >= 3)
-cleaned$at_risk <- ifelse(cleaned$`Number Infractions` > 1 | 
-                                (cleaned$any_severe_mh == 1 | cleaned$num_diagnoses >= 3), 1, 0)
-
-table(cleaned$at_risk) # close to even split
-
-cleaned$is_violator <- ifelse(cleaned$`Number Infractions` > 0, "Violator", "Non-Violator")
-
+cleaned<-read.csv("cleaned2.csv")
 df2 <- cleaned
-
+names(cleaned)
 df2 <- df2 %>%
-  filter(`Number Infractions` <=30) 
+  filter(`Number.Infractions` <=30) 
 
 median(df2$`Number Infractions`)
 
-violators_only <- df2 %>% filter(`Number Infractions` > 0)
+violators_only <- df2 %>% filter(`Number.Infractions` > 0)
 
 # Create a 'Violator' status
-df2$is_violator <- ifelse(df2$`Number Infractions` > 0, "Violator", "Non-Violator")
+df2$is_violator <- ifelse(df2$`Number.Infractions` > 0, "Violator", "Non-Violator")
 ```
 
-```{r}
-ggplot(df2, aes(x = Gender, y = `Number Infractions` + 1, fill = Gender)) +
+```{r, warning=FALSE}
+ggplot(df2, aes(x = Gender, y = `Number.Infractions` + 1, fill = Gender)) +
   geom_boxplot(outlier.shape = NA, alpha = 0.7) +
   scale_y_log10() +
   scale_fill_viridis_d(option = "mako", begin = 0.3, end = 0.7) +
@@ -122,8 +89,8 @@ ggplot(df2, aes(x = Gender, y = `Number Infractions` + 1, fill = Gender)) +
 
 The above figure is a boxplot of female versus male inmates from the sample. In exploration of what kind of variation there might be between inmate subgroups, we assessed gender as the literature had often noted strong differences in inmate behavior based on gender. The female prison population has a much more concentrated number of violations around zero in comparison to the male population. The male inmates share a similar median around one rule violation, but have a much larger spread of data compared to the female inmates. This indicated that gender would be an important demographic variable to include in our model.
 
-```{r}
-ggplot(violators_only, aes(x = as.factor(num_diagnoses), y = `Number Infractions`, fill = as.factor(num_diagnoses))) + 
+```{r, warning=FALSE}
+ggplot(violators_only, aes(x = as.factor(num_diagnoses), y = `Number.Infractions`, fill = as.factor(num_diagnoses))) + 
   geom_boxplot(width = 0.1, outlier.shape = NA) +
   scale_fill_viridis_d(option = "virdis", begin = 0.2, end = 0.8) +
   labs(title = "Violation Intensity",
@@ -134,7 +101,7 @@ ggplot(violators_only, aes(x = as.factor(num_diagnoses), y = `Number Infractions
 
 The data includes variables that detail if a prisoner has ever received a diagnosis of bipolar disorder, depression, schizophrenia, anxiety, PTSD, and a host of other mental health issues. We created a variable that summarizes the number of diagnoses based on the existing diagnoses an inmate has. The above boxplot shows a moderate infraction count for those with two or fewer diagnoses, but a noticeable jump in spread occurs at the third diagnoses. There is a noticeable increase in the count of infractions after the third diagnosis, a trend that continues up until the sixth mental health diagnoses.
 
-```{r}
+```{r, warning=FALSE}
 ggplot(df2, aes(x = as.factor(offense_type), fill = is_violator)) +
   geom_bar(position = "fill") + 
   scale_y_continuous(labels = scales::percent) +
