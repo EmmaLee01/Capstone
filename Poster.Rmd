@@ -1,15 +1,24 @@
 ---
 title: "Mental Health and Rule Violations in U.S. State Prisons"
-author: "Hannah V., Sophie K., Emily W., & Starr M."
-date: "April 24, 2026"
+author:
+  - name: "Hannah V."
+    affil: 1
+  - name: "Sophie K."
+    affil: 1
+  - name: "Emily W."
+    affil: 1
+  - name: "Starr M."
+    affil: 1
+affiliation:
+  - id: 1
+    institution: "University of Virginia"date: "April 24, 2026"
 logoleft_name: "bars.png"
 logoright_name: "MH.png"
 primary_colour: "#E57200"
 title_textcol: "#FFFFFF"
 body_textcol: "#FFFFFF"
-institute: "University of Virginia"
 body_bgcol: "#232D4B"
-poster_height: "36in"
+poster_height: "38in"
 poster_width: "48in"
 column_numbers: 5
 font_family: Garamond
@@ -115,7 +124,7 @@ p1 + p2 +
                   plot.caption  = element_text(size = 9,  color = "#aaaaaa"),
                   plot.background = element_rect(fill = "white", color = NA)))
 ```
-<u>**Key Variables**</u><br>
+<br><u>**Key Variables**</u><br>
 Our analysis focuses on:
 
 **Mental health**: number of mental health diagnoses (severity proxy) and indicators of receiving mental health treatment during incarceration.
