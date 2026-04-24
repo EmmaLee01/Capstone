@@ -1,6 +1,7 @@
 ---
-title: "Mental Health and Rule Violations in U.S. State Prisons"
-author: "Hannah V., Sophie K., Emily W., & Starr M."
+title: |
+  Mental Health and Rule Violations in U.S. State Prisons
+  <br><span style="font-size:40px; font-weight:400;">Hannah V., Sophie K., Emily W., & Starr M.</span>
 date: "April 24, 2026"
 logoleft_name: "bars.png"
 logoright_name: "MH.png"
