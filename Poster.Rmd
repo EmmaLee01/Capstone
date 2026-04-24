@@ -15,7 +15,19 @@ column_numbers: 5
 font_family: Garamond
 output:
   posterdown::posterdown_html
+encoding: UTF-8
 ---
+```{r setup, include = F}
+options(encoding = "UTF-8")
+library(tidyverse)
+library(dplyr)
+library(knitr)
+library(caret)
+library(kableExtra)
+library(ggplot2)
+library(htmltools)
+library(broom)
+```
 
 <style>
 body, p, li, ul, ol, strong, em {
@@ -61,20 +73,55 @@ Our analysis focuses on:
 BLAH BLAH BLAH
 
 
-# Results {.mybreak}
+# Results and Interpretations
 
-BLAH BLAH BLAH
-
-# Data visualizations 
 
 ```{r, echo = F, warning = F, message=F}
-library(tidyverse)
 
-ggplot(mtcars, aes(x=hp, y = mpg)) + geom_point()
+cleaned2<-read.csv('cleaned2.csv', encoding = 'UTF-8')
+
+
+model3 <- glm(at_risk ~ `Years.of.Education` + `ADD.ADHD` + 
+                Gender + offense_type + Children + `Times.Arrested` + 
+                `Mental.Health.Treatment` + Alcoholism,
+              family = binomial(link = "logit"),
+              data = cleaned2,
+              na.action = na.exclude) 
+
+
+
+cleaned2$binary_risk<-cleaned2$pred_risk_level
+cleaned2$binary_risk[cleaned2$binary_risk=="High Predicted Risk"] <- 1
+cleaned2$binary_risk[cleaned2$binary_risk=="Low Predicted Risk"] <- 0
+
+
+
+
+
+
+
+cm_data <- data.frame(
+  `Risk Classification` = c("Predicted: Low", "Predicted: High"),
+  `Observed: No Infraction (0)` = c("5,361", "1,755"),
+  `Observed: At Risk (1)` = c("2,365", "5,969"),
+  check.names = FALSE
+)
+cm <- confusionMatrix(as.factor(cleaned2$binary_risk), as.factor(cleaned2$at_risk))
+
+kable(
+  cm_data,
+  booktabs = TRUE,
+  caption = "Stage 1 Confusion Matrix",
+  align = "lcc",
+  escape = FALSE
+) %>%
+  footnote(
+    general = "Overall Accuracy: 73.3% | Sensitivity: 75.3% | Specificity: 71.6% | P-Value: < .001 | No Information Rate (NIR): 53.9%",
+    threeparttable = TRUE
+  )
 ```
 
 
-# Interpretations {.mybreak}
 
 **Stage 1 - Who is High Risk?**
 
@@ -100,7 +147,6 @@ stage1_results <- data.frame(
                 "Increases Risk", "Decreases Risk", "Decreases Risk")
 )
 
-# Reorder by estimate
 stage1_results$Variable <- reorder(stage1_results$Variable, stage1_results$Estimate)
 
 ggplot(stage1_results, aes(x = Estimate, y = Variable, fill = Direction)) +
@@ -125,6 +171,40 @@ legend.title = element_blank(),axis.title.x = element_text(size = 18, face = "bo
   )
 ```
 
+```{r, echo = F, warning = F, message=F, out.width="110%" }
+stage1_table <- data.frame(
+  Predictor = c(
+    "Mental Health Treatment",
+    "ADD/ADHD",
+    "Times Arrested",
+    "Children"
+  ),
+  "Odds Ratio" = c("9.0x", "3.8x", "1.01x", "0.91x"),
+  Interpretation = c(
+    "Highest impact group",
+    "High clinical risk",
+    "Risk increases per arrest",
+    "Protective factor (9% lower risk)"
+  ),
+  check.names = FALSE
+)
+
+kable(stage1_table,
+      booktabs = TRUE,
+      align = "lll")%>%
+    kable_styling(
+    full_width = TRUE,
+    font_size = 30,
+    bootstrap_options = c("striped", "hover")
+  ) %>%
+  row_spec(0, bold = TRUE, background = "#0077B5", color = "white") %>%
+  row_spec(1, background = "#fff3cd") %>%  
+  row_spec(2, background = "#E57200") %>%
+  row_spec(3, background = "#fff3cd") %>%
+  row_spec(4, background = "#E57200") %>%
+  column_spec(1, bold = TRUE) %>%
+  column_spec(2, color = "#0077B5", bold = TRUE)
+```
 - **Mental Health treatment → strongest predictor** of high-risk classification.
 - **ADD/ADHD → nearly 4× higher odds** of being classified as high risk.
 - **Male gender → lower predicted risk** after controlling for other factors.
@@ -183,6 +263,74 @@ axis.text.x = element_text(color = "black", size = 14),
   )
 ```
 
+```{r, warning=F, message=F, echo=F,fig.width=9, fig.height=11 }
+library(ggplot2)
+library(dplyr)
+
+coef_data <- data.frame(
+  term = c( "Race: Black", "Race: Hispanic", "Race: Multiracial", "Race: Other", "Race: White", "Num. Diagnoses", "Armed Forces", "Times Arrested", "Years of Education", "ADD/ADHD", "Homeless", "Children", "Mental Health Treatment", "Alcoholism", "Alcohol/Drug Treatment", "Gender: Male", "Offense: Other", "Offense: Property", "Offense: Public Order", "Offense: Unknown", "Offense: Violent", "MH Treatment x Diagnoses", "Alcoholism x Drug Treatment"
+  ),
+  estimate = c(
+    1.035531, 1.054957, 0.730125, 1.330617, 0.439531, 0.072018, -0.145850, 0.007912, -0.037718, 0.604736, -0.114640, -0.395354, 0.324830, 0.294180, 0.023718, -0.045294, 0.400541, -0.014625, -0.240554, -0.512680, 0.125330, -0.014916, -0.281589
+  ),
+  std.error = c(0.490403, 0.511488, 0.489379, 0.536754, 0.489300,0.026254, 0.119248, 0.001149, 0.011595,0.063758, 0.113859, 0.058881, 0.093639,0.081531, 0.074325, 0.062580,0.417414, 0.096488, 0.111770,0.133487, 0.085486,0.033334, 0.109103
+  ),
+  p.value = c( 0.034721, 0.039158, 0.135714, 0.013175, 0.369034, 0.006086, 0.221300, 5.76e-12, 0.001142, 2e-16, 0.314003, 1.89e-11, 0.000522, 0.000308, 0.749638, 0.469206, 0.337268, 0.879527, 0.031380, 0.000123, 0.142624, 0.654547, 0.009853
+  )
+) %>%
+  mutate(
+    conf.low = estimate - 1.96 * std.error,
+    conf.high = estimate + 1.96 * std.error,
+    significant = p.value < 0.05,
+    direction = case_when(
+      estimate > 0 & significant ~ "Increases Risk",
+      estimate < 0 & significant ~ "Decreases Risk",
+      TRUE ~ "Non-Significant"
+    ),
+    highlight = term == "Children",
+    term = reorder(term, estimate)
+  )
+
+ggplot(coef_data, aes(x = estimate, y = term)) +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "gray50", linewidth = 0.7) +
+  geom_errorbarh(
+    aes(xmin = conf.low, xmax = conf.high, color = direction),
+    height = 0.3, linewidth = 0.7
+  ) +
+  geom_point(
+    aes(color = direction, size = highlight, shape = highlight)
+  ) +
+  geom_text(
+    data = filter(coef_data, highlight),
+    aes(label = "  ← Protective Factor"),
+    hjust = 0, color = "#39ae85", fontface = "bold", size = 4.5
+  ) +
+  scale_color_manual(
+    values = c(
+      "Increases Risk"    = "#C0392B",
+      "Decreases Risk"    = "#39ae85",
+      "Non-Significant"   = "gray60"
+    )
+  ) +
+  scale_size_manual(values = c("FALSE" = 3, "TRUE" = 5), guide = "none") +
+  scale_shape_manual(values = c("FALSE" = 16, "TRUE" = 18), guide = "none") +
+  labs(
+    title    = "Landscape of Risk",
+    x = "Coefficient Estimate",
+    y = NULL,
+    color = NULL,
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    legend.position = "top",
+    panel.grid.minor = element_blank(),
+    panel.grid.major.y = element_line(linetype = "dotted", color = "gray85"),
+    plot.title = element_text(face = "bold", size = 20),
+    plot.subtitle = element_text(size = 12, color = "gray40"),
+    axis.text.y = element_text(size = 15))
+      
+```
+
 - **ADD/ADHD → strongest clinical predictor** of higher violation counts.
 - **More diagnoses and prior arrests → more expected violations.**
 - **Education and children → fewer expected violations.**
@@ -215,6 +363,6 @@ axis.text.x = element_text(color = "black", size = 14),
 **What We Gained**
 
 - **Full project autonomy:** From raw data to final presentation, we managed the full analytical process independently.
-- **Decision-making:** We selected models and justified decisions without a single “correct” answer.
+- **Decision-making:** We selected models and justified decisions without a single "correct" answer.
 - **Communication across audiences:** Producing both technical and non-technical outputs strengthened clarity and accessibility.
 - **Collaborative analysis:** Team-based work required coordination, iteration, and synthesis of different approaches.
