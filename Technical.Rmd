@@ -18,7 +18,8 @@ library(see)
 library(ggplot2)
 library(pROC)
 library(marginaleffects)
-
+library(scales)
+library(patchwork)
 ```
 
 # Background and Resarch Questions
@@ -46,6 +47,59 @@ The Principal Investigator of this study was the Bureau of Justice Statistics Co
 Questions regarding personal feelings on past wrongdoings may lead to response biases as inmates may feel they want to lie to “look good.” Inmates were assured that answers were completely anonymous and that their identity was protected, to reduce bias. 
 
 Our model is composed of variables related to mental health, treatment, alcohol use, and a host of controls that are unrelated to treatment. The variable that outlines the number of diagnoses an inmate has is highly relevant to our analysis, as it serves as a proxy for severity of someone’s mental condition. People who are diagnosed with more mental health issues are expected to struggle more in and outside of prison. On top of that, the mental health treatment status of an inmate is important to this work as it is one of the focal parameters. It indicates if a person has received mental health treatment during their incarceration period or not. Additionally we are able to observe if the inmate has had an alcohol abuse problem or if they have ever participated in an alcohol treatment program.
+
+```{r, echo = F, warning=F, message=F}
+donut_data <- data.frame(
+  status = factor(c("Has a Diagnosis", "No Diagnosis"), levels = c("No Diagnosis", "Has a Diagnosis")),
+  pct = c(0.467, 0.533))
+
+p1 <- ggplot(donut_data, aes(x = 2, y = pct, fill = status)) +
+  geom_col(width = 1, alpha = 0.91) +
+  coord_polar(theta = "y", start = 0) +
+  xlim(0.5, 2.5) +
+  scale_fill_manual(
+    values = c("No Diagnosis"    = "#d3d3d3",  "Has a Diagnosis" = "#3B528B"),
+    labels = c("No Diagnosis"    = "No Diagnosis (53.3%)",
+               "Has a Diagnosis" = "Has a Diagnosis (46.7%)"), name = NULL) +
+  labs(title = "Nearly Half of Inmates Have\na Mental Health Diagnosis") +
+  theme_void() +
+  theme(plot.title = element_text(face = "bold", size = 13, color = "#1a1a2e",
+                                   lineheight = 1.2, hjust = 0.5),
+    legend.position  = "bottom",
+    legend.text = element_text(size = 9, color = "#2C3E50"),
+    plot.background = element_rect(fill = "white", color = NA))
+
+
+conditions <- data.frame(
+  condition = factor(c("Depression", "Anxiety", "Bipolar Disorder", "PTSD", "Personality Disorder", "Schizophrenia"),
+                     levels = c("Schizophrenia", "Personality Disorder",  "PTSD", "Bipolar Disorder", "Anxiety", "Depression")),
+  pct = c(0.309, 0.264, 0.261, 0.180, 0.124, 0.087))
+
+p2 <- ggplot(conditions, aes(x = condition, y = pct, fill = condition)) +
+  geom_col(width = 0.6, alpha = 0.91) +
+  geom_text(aes(label = paste0(round(pct * 100, 1), "%")),
+            hjust = -0.15, fontface = "bold", size = 4, color = "#2C3E50") +
+  coord_flip() +
+  scale_fill_viridis_d(option = "viridis", begin = 0.10, end = 0.92, guide = "none") +
+  scale_y_continuous(limits = c(0, 0.38), expand = c(0, 0), labels = percent_format(accuracy = 1)) +
+  labs(title = "Most Common Diagnoses\nAmong Incarcerated People",
+       x = NULL, y = "Share of All Inmates") +
+  theme_minimal(base_size = 13) +
+  theme(plot.title = element_text(face = "bold", size = 13, color = "#1a1a2e",lineheight = 1.2),
+        panel.grid.major.y = element_blank(),
+        panel.grid.minor= element_blank(),
+        plot.background= element_rect(fill = "white", color = NA))
+
+
+p1 + p2 +
+  plot_annotation(title   = "Mental Health in U.S. Prisons",  subtitle = "Survey of Prison Inmates, 2016",
+                  caption  = "Note: inmates may have more than one diagnosis",
+    theme = theme(plot.title    = element_text(face = "bold", size = 17, color = "#1a1a2e"),
+                  plot.subtitle = element_text(size = 11, color = "#666666"),
+                  plot.caption  = element_text(size = 9,  color = "#aaaaaa"),
+                  plot.background = element_rect(fill = "white", color = NA)))
+```
+As shown above, mental health diagnoses are common in the prison population, with 46.7% of inmates reporting at least one diagnosis. Among all inmates, depression is the most prevalent diagnosis (30.9%), followed by anxiety (26.4%) and bipolar disorder (26.1%), while PTSD, personality disorder, and schizophrenia appear less frequently. Because inmates may report more than one diagnosis, these percentages are not mutually exclusive, but the figure highlights the substantial mental health burden in the sample and supports the inclusion of diagnosis-related variables in later modeling.
 
 In terms of the variables outside of treatment and mental health, education is one of the most important variables in our analysis. In the exploratory data analysis of the SPI, 78 percent of prisoners had a high school diploma or less. In the second stage model, we find education to be one of the strongest predictors of rule violations. Additionally, we find that the number of times a person is arrested is highly significant. This is related to the idea of repeated violations of legal rules that likely transfers over to prison-time violations. 
 
