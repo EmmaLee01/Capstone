@@ -18,8 +18,7 @@ library(see)
 library(ggplot2)
 library(pROC)
 library(marginaleffects)
-library(scales)
-library(patchwork)
+
 ```
 
 # Background and Resarch Questions
@@ -48,62 +47,107 @@ Questions regarding personal feelings on past wrongdoings may lead to response b
 
 Our model is composed of variables related to mental health, treatment, alcohol use, and a host of controls that are unrelated to treatment. The variable that outlines the number of diagnoses an inmate has is highly relevant to our analysis, as it serves as a proxy for severity of someone’s mental condition. People who are diagnosed with more mental health issues are expected to struggle more in and outside of prison. On top of that, the mental health treatment status of an inmate is important to this work as it is one of the focal parameters. It indicates if a person has received mental health treatment during their incarceration period or not. Additionally we are able to observe if the inmate has had an alcohol abuse problem or if they have ever participated in an alcohol treatment program.
 
-```{r, echo = F, warning=F, message=F}
-donut_data <- data.frame(
-  status = factor(c("Has a Diagnosis", "No Diagnosis"), levels = c("No Diagnosis", "Has a Diagnosis")),
-  pct = c(0.467, 0.533))
-
-p1 <- ggplot(donut_data, aes(x = 2, y = pct, fill = status)) +
-  geom_col(width = 1, alpha = 0.91) +
-  coord_polar(theta = "y", start = 0) +
-  xlim(0.5, 2.5) +
-  scale_fill_manual(
-    values = c("No Diagnosis"    = "#d3d3d3",  "Has a Diagnosis" = "#3B528B"),
-    labels = c("No Diagnosis"    = "No Diagnosis (53.3%)",
-               "Has a Diagnosis" = "Has a Diagnosis (46.7%)"), name = NULL) +
-  labs(title = "Nearly Half of Inmates Have\na Mental Health Diagnosis") +
-  theme_void() +
-  theme(plot.title = element_text(face = "bold", size = 13, color = "#1a1a2e",
-                                   lineheight = 1.2, hjust = 0.5),
-    legend.position  = "bottom",
-    legend.text = element_text(size = 9, color = "#2C3E50"),
-    plot.background = element_rect(fill = "white", color = NA))
-
-
-conditions <- data.frame(
-  condition = factor(c("Depression", "Anxiety", "Bipolar Disorder", "PTSD", "Personality Disorder", "Schizophrenia"),
-                     levels = c("Schizophrenia", "Personality Disorder",  "PTSD", "Bipolar Disorder", "Anxiety", "Depression")),
-  pct = c(0.309, 0.264, 0.261, 0.180, 0.124, 0.087))
-
-p2 <- ggplot(conditions, aes(x = condition, y = pct, fill = condition)) +
-  geom_col(width = 0.6, alpha = 0.91) +
-  geom_text(aes(label = paste0(round(pct * 100, 1), "%")),
-            hjust = -0.15, fontface = "bold", size = 4, color = "#2C3E50") +
-  coord_flip() +
-  scale_fill_viridis_d(option = "viridis", begin = 0.10, end = 0.92, guide = "none") +
-  scale_y_continuous(limits = c(0, 0.38), expand = c(0, 0), labels = percent_format(accuracy = 1)) +
-  labs(title = "Most Common Diagnoses\nAmong Incarcerated People",
-       x = NULL, y = "Share of All Inmates") +
-  theme_minimal(base_size = 13) +
-  theme(plot.title = element_text(face = "bold", size = 13, color = "#1a1a2e",lineheight = 1.2),
-        panel.grid.major.y = element_blank(),
-        panel.grid.minor= element_blank(),
-        plot.background= element_rect(fill = "white", color = NA))
-
-
-p1 + p2 +
-  plot_annotation(title   = "Mental Health in U.S. Prisons",  subtitle = "Survey of Prison Inmates, 2016",
-                  caption  = "Note: inmates may have more than one diagnosis",
-    theme = theme(plot.title    = element_text(face = "bold", size = 17, color = "#1a1a2e"),
-                  plot.subtitle = element_text(size = 11, color = "#666666"),
-                  plot.caption  = element_text(size = 9,  color = "#aaaaaa"),
-                  plot.background = element_rect(fill = "white", color = NA)))
-```
-As shown above, mental health diagnoses are common in the prison population, with 46.7% of inmates reporting at least one diagnosis. Among all inmates, depression is the most prevalent diagnosis (30.9%), followed by anxiety (26.4%) and bipolar disorder (26.1%), while PTSD, personality disorder, and schizophrenia appear less frequently. Because inmates may report more than one diagnosis, these percentages are not mutually exclusive, but the figure highlights the substantial mental health burden in the sample and supports the inclusion of diagnosis-related variables in later modeling.
-
 In terms of the variables outside of treatment and mental health, education is one of the most important variables in our analysis. In the exploratory data analysis of the SPI, 78 percent of prisoners had a high school diploma or less. In the second stage model, we find education to be one of the strongest predictors of rule violations. Additionally, we find that the number of times a person is arrested is highly significant. This is related to the idea of repeated violations of legal rules that likely transfers over to prison-time violations. 
 
 Many of the variables were suppressed due to privacy reasons and therefore had to be removed because they were unusable. Additionally, all categorical variables had extra descriptions, i.e. "(1) 1 = Yes" as an observation, and therefore must be flattened. Furthermore, many observations were missing for various reasons with codes to specify why, but for our purposes, we flattened them all to "0" or NA as the reason for missing was not relevant to this project.
+
+## Exploratory Data Analysis
+We conducted exploratory data analysis to further our understanding of the variables in our data set. Using data visualizations of the distribution of variables and correlation matrices allowed us to see the range of outcomes for prison inmates across variables like education, mental health treatment, and gender. Identifying if there are differences in sub groups was informative to seeing the variation across risk groups of inmates for prison violations.
+
+```{r, include=FALSE}
+cleaned<-read.csv("cleaned.csv")
+clean_survey_num <- function(x) {
+  num <- as.numeric(gsub(".*\\((-?\\d+)\\).*", "\\1", as.character(x)))
+  return(ifelse(num == 2, 0, ifelse(num < 0, NA, num)))
+}
+
+vars_to_clean <- c("Armed Forces", "ADD/ADHD", "Homeless", "Children", 
+                   "Bipolar", "Depression", "Schizophrenia", "PTSD", "Anxiety", 
+                   "Personality Disorder", "Other Diagnosis", "Mental Health Treatment", 
+                   "Alcoholism", "Cocaine", "Crack", "Heroin", "PCP", "Ecstasy", 
+                   "Meth", "Alcohol/Drug Treatment")
+
+cleaned <- cleaned %>%
+  mutate(across(all_of(vars_to_clean), ~ clean_survey_num(.)))
+
+# Years of Ed different from other vars
+cleaned$`Years of Education` <- as.numeric(gsub(".*\\((-?\\d+)\\).*", "\\1", as.character(cleaned$`Years of Education`)))
+cleaned$`Years of Education` <- ifelse(cleaned$`Years of Education` < 0, NA, cleaned$`Years of Education`)
+
+cleaned <- cleaned %>%
+  mutate(Race = case_when(
+    Race %in% c("Native Hawaiian", "American Indian", "Other Race") ~ "Other",
+    TRUE ~ as.character(Race))) %>%
+  mutate(num_diagnoses = rowSums(across(
+    c(Bipolar, Depression, Schizophrenia, PTSD, Anxiety, `Personality Disorder`)),
+    na.rm = TRUE))
+
+cleaned$Race <- factor(cleaned$Race)
+
+cleaned <- cleaned %>%
+  mutate(any_severe_mh = ifelse(Bipolar == 1 | Depression == 1 | 
+                                 Schizophrenia == 1 | PTSD == 1 | 
+                                 Anxiety == 1, 1, 0))
+
+# Infractions > 1 OR (Any Severe Diagnosis == 1 AND num_diagnoses >= 3)
+cleaned$at_risk <- ifelse(cleaned$`Number Infractions` > 1 | 
+                                (cleaned$any_severe_mh == 1 | cleaned$num_diagnoses >= 3), 1, 0)
+
+table(cleaned$at_risk) # close to even split
+
+cleaned$is_violator <- ifelse(cleaned$`Number Infractions` > 0, "Violator", "Non-Violator")
+
+df2 <- cleaned
+
+df2 <- df2 %>%
+  filter(`Number Infractions` <=30) 
+
+median(df2$`Number Infractions`)
+
+violators_only <- df2 %>% filter(`Number Infractions` > 0)
+
+# Create a 'Violator' status
+df2$is_violator <- ifelse(df2$`Number Infractions` > 0, "Violator", "Non-Violator")
+```
+
+```{r}
+ggplot(df2, aes(x = Gender, y = `Number Infractions` + 1, fill = Gender)) +
+  geom_boxplot(outlier.shape = NA, alpha = 0.7) +
+  scale_y_log10() +
+  scale_fill_viridis_d(option = "mako", begin = 0.3, end = 0.7) +
+  labs(title = "Rule Violations by Gender",
+       y = "Number of Infractions (Log Scale)") +
+  theme_minimal()
+```
+
+The above figure is a boxplot of female versus male inmates from the sample. In exploration of what kind of variation there might be between inmate subgroups, we assessed gender as the literature had often noted strong differences in inmate behavior based on gender. The female prison population has a much more concentrated number of violations around zero in comparison to the male population. The male inmates share a similar median around one rule violation, but have a much larger spread of data compared to the female inmates. This indicated that gender would be an important demographic variable to include in our model.
+
+```{r}
+ggplot(violators_only, aes(x = as.factor(num_diagnoses), y = `Number Infractions`, fill = as.factor(num_diagnoses))) + 
+  geom_boxplot(width = 0.1, outlier.shape = NA) +
+  scale_fill_viridis_d(option = "virdis", begin = 0.2, end = 0.8) +
+  labs(title = "Violation Intensity",
+       subtitle = "Only showing inmates with 1+ violations",
+       x = "Number of Diagnoses", y = "Count of Infractions", fill = "Number of Diagnoses") +
+  theme_minimal()
+```
+
+The data includes variables that detail if a prisoner has ever received a diagnosis of bipolar disorder, depression, schizophrenia, anxiety, PTSD, and a host of other mental health issues. We created a variable that summarizes the number of diagnoses based on the existing diagnoses an inmate has. The above boxplot shows a moderate infraction count for those with two or fewer diagnoses, but a noticeable jump in spread occurs at the third diagnoses. There is a noticeable increase in the count of infractions after the third diagnosis, a trend that continues up until the sixth mental health diagnoses.
+
+```{r}
+ggplot(df2, aes(x = as.factor(offense_type), fill = is_violator)) +
+  geom_bar(position = "fill") + 
+  scale_y_continuous(labels = scales::percent) +
+  scale_fill_viridis_d(option = "mako", begin = 0.2, end = 0.8) + 
+  labs(title = "Probability of Rule Violations by Controlling Offense Type",
+       x = "Offense Type", 
+       y = "Percentage of Inmates",
+       fill = "Status") +
+  theme_minimal()
+```
+
+The offense type also had an interesting distribution. Intuition suggested that the most violent offenses would also have the highest shares of rule violaters compared to non-violators. This holds true, but three other offense types have similarly high shares of rule violators: drug, property, and public offenses. This identifies a meaningful difference in the distribution of violators motivating why offense type is included in our later regressions.
+
 
 # Methods
 
