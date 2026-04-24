@@ -27,6 +27,11 @@ library(kableExtra)
 library(ggplot2)
 library(htmltools)
 library(broom)
+library(scales)
+library(patchwork)
+library(pROC)
+library(marginaleffects)
+
 ```
 
 <style>
@@ -58,7 +63,8 @@ We focus on two main questions:
 **Data**<br>
 We use the _2016 Survey of Prison Inmates (SPI), United States (ICPSR 37692)_, a public‑use survey of state prisoners. About 20,000 inmates were selected through a two‑stage probability sample to represent roughly 1.5 million state prisoners nationwide. Data come from in‑person, computer‑assisted interviews and linked records, with anonymity protections and a relatively high response rate. In the sample, 47 percent of all inmates had at least one diagnoses of a mental health issue, which is a staggeringly high rate.
 
-```{r}
+```{r, echo=F, message=F, warning=F}
+cleaned2<-read.csv('cleaned2.csv')
 donut_data <- data.frame(
   status = factor(c("Has a Diagnosis", "No Diagnosis"), levels = c("No Diagnosis", "Has a Diagnosis")),
   pct = c(0.467, 0.533))
@@ -119,7 +125,7 @@ Our analysis focuses on:
 **Social and criminal history**: education, prior arrests, and other demographic and offense characteristics used as controls.
 
 
-# Methods of Analysis {.mybreak}
+# Methods of Analysis 
 
 **The methodological challenge: a zero-inflated infraction count**\
 Most inmates have zero or very few infractions, while a small subset of inmates have many. Using one model applied across everyone performs poorly, causing us to get creative in our modelling.
