@@ -56,8 +56,59 @@ We focus on two main questions:
 <u>How do mental health diagnoses and in‑prison mental health treatment relate to that risk, and do current services appear to reach those at highest risk?</u>
 
 **Data**<br>
-We use the _2016 Survey of Prison Inmates (SPI), United States (ICPSR 37692)_, a public‑use survey of state prisoners. About 20,000 inmates were selected through a two‑stage probability sample to represent roughly 1.5 million state prisoners nationwide. Data come from in‑person, computer‑assisted interviews and linked records, with anonymity protections and a relatively high response rate.
+We use the _2016 Survey of Prison Inmates (SPI), United States (ICPSR 37692)_, a public‑use survey of state prisoners. About 20,000 inmates were selected through a two‑stage probability sample to represent roughly 1.5 million state prisoners nationwide. Data come from in‑person, computer‑assisted interviews and linked records, with anonymity protections and a relatively high response rate. In the sample, 47 percent of all inmates had at least one diagnoses of a mental health issue, which is a staggeringly high rate.
 
+```{r}
+donut_data <- data.frame(
+  status = factor(c("Has a Diagnosis", "No Diagnosis"), levels = c("No Diagnosis", "Has a Diagnosis")),
+  pct = c(0.467, 0.533))
+
+p1 <- ggplot(donut_data, aes(x = 2, y = pct, fill = status)) +
+  geom_col(width = 1, alpha = 0.91) +
+  coord_polar(theta = "y", start = 0) +
+  xlim(0.5, 2.5) +
+  scale_fill_manual(
+    values = c("No Diagnosis"    = "#d3d3d3",  "Has a Diagnosis" = "#3B528B"),
+    labels = c("No Diagnosis"    = "No Diagnosis (53.3%)",
+               "Has a Diagnosis" = "Has a Diagnosis (46.7%)"), name = NULL) +
+  labs(title = "Nearly Half of Inmates Have\na Mental Health Diagnosis") +
+  theme_void() +
+  theme(plot.title = element_text(face = "bold", size = 13, color = "#1a1a2e",
+                                   lineheight = 1.2, hjust = 0.5),
+    legend.position  = "bottom",
+    legend.text = element_text(size = 9, color = "#2C3E50"),
+    plot.background = element_rect(fill = "white", color = NA))
+
+
+conditions <- data.frame(
+  condition = factor(c("Depression", "Anxiety", "Bipolar Disorder", "PTSD", "Personality Disorder", "Schizophrenia"),
+                     levels = c("Schizophrenia", "Personality Disorder",  "PTSD", "Bipolar Disorder", "Anxiety", "Depression")),
+  pct = c(0.309, 0.264, 0.261, 0.180, 0.124, 0.087))
+
+p2 <- ggplot(conditions, aes(x = condition, y = pct, fill = condition)) +
+  geom_col(width = 0.6, alpha = 0.91) +
+  geom_text(aes(label = paste0(round(pct * 100, 1), "%")),
+            hjust = -0.15, fontface = "bold", size = 4, color = "#2C3E50") +
+  coord_flip() +
+  scale_fill_viridis_d(option = "viridis", begin = 0.10, end = 0.92, guide = "none") +
+  scale_y_continuous(limits = c(0, 0.38), expand = c(0, 0), labels = percent_format(accuracy = 1)) +
+  labs(title = "Most Common Diagnoses\nAmong Incarcerated People",
+       x = NULL, y = "Share of All Inmates") +
+  theme_minimal(base_size = 13) +
+  theme(plot.title = element_text(face = "bold", size = 13, color = "#1a1a2e",lineheight = 1.2),
+        panel.grid.major.y = element_blank(),
+        panel.grid.minor= element_blank(),
+        plot.background= element_rect(fill = "white", color = NA))
+
+
+p1 + p2 +
+  plot_annotation(title   = "Mental Health in U.S. Prisons",  subtitle = "Survey of Prison Inmates, 2016",
+                  caption  = "Note: inmates may have more than one diagnosis",
+    theme = theme(plot.title    = element_text(face = "bold", size = 17, color = "#1a1a2e"),
+                  plot.subtitle = element_text(size = 11, color = "#666666"),
+                  plot.caption  = element_text(size = 9,  color = "#aaaaaa"),
+                  plot.background = element_rect(fill = "white", color = NA)))
+```
 <u>**Key Variables**</u><br>
 Our analysis focuses on:
 
@@ -70,7 +121,105 @@ Our analysis focuses on:
 
 # Methods of Analysis {.mybreak}
 
-BLAH BLAH BLAH
+**The methodological challenge: a zero-inflated infraction count**\
+Most inmates have zero or very few infractions, while a small subset of inmates have many. Using one model applied across everyone performs poorly, causing us to get creative in our modelling.
+
+We address this by using a two-stage approach that separates *who is at risk* from *how severe that risk is*.
+
+**Stage 1: Logistic Regression Predicting who is at risk**
+
+We constructed a binary variable called "at risk", which is defined as being equal to 1 if:
+
+-   Inmate has any severe mental health diagnosis, or
+-   Inmate has more than 1 infraction, or
+-   Inmate has 3 or more total diagnoses
+
+Then the logistic regression model is able to predict if an inmate is at risk or not using a broad panel of demographic and institutional variables. Some of those included are mental health treatment, alcohol use, gender, offense type, and prior arrests.
+
+$logit(P(At Risk = 1)) = \beta_0+\beta_1Years of Education+\beta_2ADD/ADHD+\beta_3Gender:Male+$
+
+$\beta_4Offense:Other+\beta_5Offense:Property+\beta_6OffensePublic Order+\beta_7Offense:Unknown+$
+
+$\beta_8Offense:Violent+\beta_9Children+\beta_{10}Times Arrested+\beta_{11}Mental Health Treatment+\beta_{12}Alcoholism$
+
+The model is run on 15,450 observations which is a large sample size. After conducting a Likelihood-Ratio Test on our model, we find that our final model has a deviance score (null vs residual) of 4685 on 12 degrees of freedom and a p-value less than 0.001.
+
+**Key finding**: mental health treatment and ADD/ADHD diagnosis are strong predictors of being "at risk", but they don't predict how many infractions follow.
+
+```{r, echo=F}
+model3 <- glm(at_risk ~ `Years.of.Education` + `ADD.ADHD` + 
+                Gender + offense_type + Children + `Times.Arrested` + 
+                `Mental.Health.Treatment` + Alcoholism,
+              family = binomial(link = "logit"), 
+              data = cleaned2,
+              na.action = na.exclude) 
+
+cleaned2$prob_at_risk <- predict(model3, type = "response")
+med_val <- median(cleaned2$prob_at_risk, na.rm = TRUE)
+cleaned2 <- cleaned2 %>%
+  mutate(binary_risk = ifelse(prob_at_risk > med_val, "High Predicted Risk", "Low Predicted Risk"))
+
+cleaned2$binary_risk[cleaned2$binary_risk=="High Predicted Risk"] <- 1
+cleaned2$binary_risk[cleaned2$binary_risk=="Low Predicted Risk"] <- 0
+
+cm_data <- data.frame(
+  Classification = c("Predicted: Low Risk (0)", "Predicted: High Risk (1)"),
+  `Observed: No Infraction (0)` = c("5,361", "1,755"),
+  `Observed: At Risk (1)` = c("2,365", "5,969"),
+  check.names = FALSE)
+cm <- confusionMatrix(as.factor(cleaned2$binary_risk), as.factor(cleaned2$at_risk))
+conf_intervals <- suppressMessages(exp(confint(model3)))
+vars <- c("ADD.ADHD", "GenderMale", "Mental.Health.Treatment")
+conf_intervals <- suppressMessages(exp(confint(model3)))
+odds_ratios <- suppressMessages(exp(coef(model3)))
+vardf <- data.frame(
+  Variable = c("ADD/ADHD", "Male Gender", "Mental Health Treatment"),
+  Estimate = model3$coefficients[vars],
+  OR = odds_ratios[vars],
+  "Lower_CI" = conf_intervals[vars, 1],
+  "Upper_CI" = conf_intervals[vars, 2],
+  "Z_Value" = summary(model3)$coefficients[vars, "z value"],
+  row.names = NULL)
+
+vardf$"95% Confint IRR" <- paste0("(", round(vardf$Lower_CI, 2), " - ", round(vardf$Upper_CI, 2), ")")
+
+acc  <- round(cm$overall["Accuracy"] * 100, 1)
+nir  <- round(cm$overall["AccuracyNull"] * 100, 1)
+pval <- signif(cm$overall["AccuracyPValue"], 3)
+
+kable(cm_data, booktabs = TRUE, caption = "Stage 1 Confusion Matrix", align = "lcc",
+  escape = FALSE) %>%
+  footnote(general = "Overall Accuracy: 73.3% | Sensitivity: 75.3% | Specificity: 71.6% |
+           P-Value: < .001 | No Information Rate (NIR): 53.9%",threeparttable = TRUE)
+pred_probs <- predict(model3, type = "response", na.action = na.exclude)
+roc_obj <- suppressMessages(roc(
+  response = cleaned2$at_risk[!is.na(pred_probs)],
+  predictor = pred_probs[!is.na(pred_probs)]))
+
+suppressMessages(plot(roc_obj, col = "#39ae85", lwd = 2,
+     main = paste("ROC Curve (AUC =", round(auc(roc_obj), 3), ")"),
+     print.auc = TRUE, print.auc.xy = c(0.4, 0.2)))
+
+abline(a = 0, b = 1, lty = 2, col = "gray50")
+```
+
+**Stage 2: Negative Binomial Regression**
+
+We use the Stage 1 coefficients to generate a predicted risk score for each inmate. Then inmates are plit into high and low-risk comparison groups by using the median level of rule violations which was ().
+
+Once we had the two groups defined, we needed to find a model that fit our data and created the most accurate predictions of how many violations individuals were likely to have. By iterating through many models, we landed on a negative binomial which combats the zero-inflation problem well.
+
+$ln(Infractions) = \beta_0+\beta_{1}NumberofDiagnoses+\beta_{2}ADD/ADHD+\beta_{3}MentalHealthTreatment$
+
+$+\beta_{4}Alcoholism+\beta_{5}AlcoholTreatment+ \beta_{6}NumberofDiagnoses*MentalHealthTreatment+$
+
+$\beta_{7}Alcoholism*Alcohol Treatment+\gamma_{8}Controls$
+
+The negative binomial regression is run only on the high predicted risk group, with number of infractions as the outcome using a subsample of n=7,619 observations. This model identifies which factors drive infraction intensity within this group so we can discern what is influencing the high-risk group. Negative binomial is appropriate because the count outcome remains over dispersed even after filtering, with infraction values ranging from 1 to 50
+
+Outliers above 50 infractions were removed. We had intiaially thought a Poisson Model would be most appropriate, but it was rejected due to its violated mean-variance assumption and higher AIC.
+
+**Method Limitations** The results depend heavily on the Stage 1 performing well, because if it is a weak gatekeeper then the Stage 2 estimates will be inaccurate. Violation timing and severity are also unobserved in the data, so we can not more closely match treatment cycles to violations or the types. Additionally, having no location data prevents state-level controls, limiting our findings to general trends across the state prison population.
 
 
 # Results and Interpretations
