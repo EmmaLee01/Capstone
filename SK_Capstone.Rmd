@@ -15,7 +15,7 @@ library(viridis)
 library(ggcorrplot)
 library(dplyr)
 library(fastDummies)
-#setwd("/Users/sophiekemprecos/Desktop/Capstone")
+setwd("/Users/sophiekemprecos/Desktop/Capstone")
 
 ```
 
@@ -143,6 +143,21 @@ cleaned <- cleaned %>%
     na.rm = TRUE))
 
 cleaned$Race <- factor(cleaned$Race)
+
+cleaned <- cleaned %>%
+  mutate(any_severe_mh = ifelse(Bipolar == 1 | Depression == 1 | 
+                                 Schizophrenia == 1 | PTSD == 1 | 
+                                 Anxiety == 1, 1, 0))
+
+# Infractions > 1 OR (Any Severe Diagnosis == 1 AND num_diagnoses >= 3)
+cleaned$at_risk <- ifelse(cleaned$`Number Infractions` > 1 | 
+                                (cleaned$any_severe_mh == 1 | cleaned$num_diagnoses >= 3), 1, 0)
+
+table(cleaned$at_risk) # close to even split
+
+cleaned$is_violator <- ifelse(cleaned$`Number Infractions` > 0, "Violator", "Non-Violator")
+
+write.csv(cleaned, file ="/Users/sophiekemprecos/Desktop/Capstone/Final_data.csv", row.names = FALSE)
 ```
 
 # EDA
@@ -203,7 +218,7 @@ ggplot(violators_only, aes(x = as.factor(num_diagnoses), y = `Number Infractions
        subtitle = "Only showing inmates with 1+ violations",
        x = "Number of Diagnoses", y = "Count of Infractions", fill = "Number of Diagnoses") +
   theme_minimal()
-#ggsave("/Users/sophiekemprecos/Desktop/Capstone/Visuals/Violation_diagnoses.png", width = 8, height = 6, dpi = 300)
+ggsave("/Users/sophiekemprecos/Desktop/Capstone/Visuals/Violation_diagnoses.png", width = 8, height = 6, dpi = 300)
 
 df2 %>%
   group_by(Race) %>%
@@ -215,7 +230,7 @@ df2 %>%
   labs(title = "Average Infractions by Race",
        x = "Race", y = "Mean Number of Infractions", color = "Racial Groups") +
   theme_minimal()
-#ggsave("/Users/sophiekemprecos/Desktop/Capstone/Visuals/Violation_by_race.png", width = 8, height = 6, dpi = 300)
+ggsave("/Users/sophiekemprecos/Desktop/Capstone/Visuals/Violation_by_race.png", width = 8, height = 6, dpi = 300)
 
 
 ggplot(df2, aes(x = as.factor(`Armed Forces`), fill = is_violator)) +
@@ -227,7 +242,7 @@ ggplot(df2, aes(x = as.factor(`Armed Forces`), fill = is_violator)) +
        y = "Proportion of Inmates", 
        fill = "Violation Status") +
   theme_minimal()
-#ggsave("/Users/sophiekemprecos/Desktop/Capstone/Visuals/Violation_by_armedforces.png", width = 8, height = 6, dpi = 300)
+ggsave("/Users/sophiekemprecos/Desktop/Capstone/Visuals/Violation_by_armedforces.png", width = 8, height = 6, dpi = 300)
 
 ggplot(df2, aes(x = as.factor(num_diagnoses), fill = is_violator)) +
   geom_bar(position = "fill") + 
@@ -238,7 +253,7 @@ ggplot(df2, aes(x = as.factor(num_diagnoses), fill = is_violator)) +
        y = "Proportion of Inmates", 
        fill = "Violation Status") +
   theme_minimal()
-#ggsave("/Users/sophiekemprecos/Desktop/Capstone/Visuals/Violation_by_numdiagnoeses.png", width = 8, height = 6, dpi = 300)
+ggsave("/Users/sophiekemprecos/Desktop/Capstone/Visuals/Violation_by_numdiagnoeses.png", width = 8, height = 6, dpi = 300)
 
 ggplot(df2, aes(x = as.factor(offense_type), fill = is_violator)) +
   geom_bar(position = "fill") + 
@@ -249,7 +264,7 @@ ggplot(df2, aes(x = as.factor(offense_type), fill = is_violator)) +
        y = "Percentage of Inmates",
        fill = "Status") +
   theme_minimal()
-#ggsave("/Users/sophiekemprecos/Desktop/Capstone/Visuals/Violation_by_offense.png", width = 8, height = 6, dpi = 300)
+ggsave("/Users/sophiekemprecos/Desktop/Capstone/Visuals/Violation_by_offense.png", width = 8, height = 6, dpi = 300)
 
 ggplot(df2, aes(x = Gender, y = `Number Infractions` + 1, fill = Gender)) +
   geom_boxplot(outlier.shape = NA, alpha = 0.7) +
@@ -258,7 +273,7 @@ ggplot(df2, aes(x = Gender, y = `Number Infractions` + 1, fill = Gender)) +
   labs(title = "Rule Violations by Gender",
        y = "Number of Infractions (Log Scale)") +
   theme_minimal()
-#ggsave("/Users/sophiekemprecos/Desktop/Capstone/Visuals/Violation_by_gender.png", width = 8, height = 6, dpi = 300)
+ggsave("/Users/sophiekemprecos/Desktop/Capstone/Visuals/Violation_by_gender.png", width = 8, height = 6, dpi = 300)
 
 ```
 
@@ -296,7 +311,7 @@ ggcorrplot(corr_matrix,
            lab = TRUE, 
            lab_size = 2,
            title = "Correlation Matrix of Inmate Risk Factors")
-#ggsave("/Users/sophiekemprecos/Desktop/Capstone/Visuals/Heatmap.png", width = 8, height = 6, dpi = 300)
+ggsave("/Users/sophiekemprecos/Desktop/Capstone/Visuals/Heatmap.png", width = 8, height = 6, dpi = 300)
 infraction_cors <- corr_matrix["Number Infractions", ]
 
 infraction_summary <- data.frame(
@@ -314,16 +329,7 @@ print(top_k_predictors)
 
 # Logistic Model
 ```{r}
-cleaned <- cleaned %>%
-  mutate(any_severe_mh = ifelse(Bipolar == 1 | Depression == 1 | 
-                                 Schizophrenia == 1 | PTSD == 1 | 
-                                 Anxiety == 1, 1, 0))
 
-# Infractions > 1 OR (Any Severe Diagnosis == 1 AND num_diagnoses >= 3)
-cleaned$at_risk <- ifelse(cleaned$`Number Infractions` > 1 | 
-                                (cleaned$any_severe_mh == 1 | cleaned$num_diagnoses >= 3), 1, 0)
-
-table(cleaned$at_risk) # close to even split
 
 # All regressors included
 model1 <- glm(at_risk ~ Race + `Years of Education` + `ADD/ADHD` + 
@@ -344,16 +350,16 @@ model2 <- glm(at_risk ~ Race + `Years of Education` + `ADD/ADHD` +
 # summary(model2)
 
 # Dropped race bc its never been significant
-model3 <- glm(at_risk ~ `Years of Education` + `ADD/ADHD` + 
+stage1_model <- glm(at_risk ~ `Years of Education` + `ADD/ADHD` + 
                 Gender + offense_type + Children + `Times Arrested` + 
                 `Mental Health Treatment` + Alcoholism,
               family = binomial(link = "logit"), 
               data = cleaned,
               na.action = na.exclude) 
-summary(model3)
+summary(stage1_model)
 
 # Add the predicted probabilities directly to your 'cleaned' dataframe
-cleaned$prob_at_risk <- predict(model3, type = "response")
+cleaned$prob_at_risk <- predict(stage1_model, type = "response")
 med_val <- median(cleaned$prob_at_risk, na.rm = TRUE)
 cleaned <- cleaned %>%
   mutate(pred_risk_level = ifelse(prob_at_risk > med_val, "High Predicted Risk", "Low Predicted Risk"))
@@ -369,22 +375,20 @@ group_profiles <- cleaned %>%
 print(group_profiles)
 ```
 
-
-
-
 # Analysis of the high risk group
 ```{r}
 high_risk_group <- cleaned %>% filter(pred_risk_level == "High Predicted Risk")
 high_risk_group <- high_risk_group %>%
   mutate(`Number Infractions` = ifelse(`Number Infractions` < 0, NA, `Number Infractions`))
 
-stage2_model <- glm.nb(`Number Infractions` ~ Race + num_diagnoses + `Armed Forces` + +
-                         `Times Arrested`+ `Years of Education`+ `ADD/ADHD`+ `Homeless`+ `Children`+ 
-                         `Mental Health Treatment`+ `Mental Health Treatment`:num_diagnoses+ Alcoholism
+stage2_model <- glm.nb(`Number Infractions` ~ Race + num_diagnoses +  
+                         `Times Arrested`+ `Years of Education`+ `ADD/ADHD`+ `Children`+ 
+                         `Mental Health Treatment`+ `Mental Health Treatment`:num_diagnoses + Alcoholism
                        + `Alcohol/Drug Treatment` + Alcoholism:`Alcohol/Drug Treatment` + Gender + offense_type, data = high_risk_group)
 summary(stage2_model)
-
-
+library(modelsummary)
+library(pandoc)
+modelsummary(stage2_model, output = "summary.docx")
 
 library(DHARMa)
 sim_residuals <- simulateResiduals(fittedModel = stage2_model, n = 1000)
@@ -400,11 +404,10 @@ train_ind <- sample(seq_len(nrow(high_risk_group)), size = sample_size)
 train_data <- high_risk_group[train_ind, ]
 test_data <- high_risk_group[-train_ind, ]
 
-train_model <- glm.nb(`Number Infractions` ~ Race + num_diagnoses + `Armed Forces` + +
-                         `Times Arrested`+ `Years of Education`+ `ADD/ADHD`+ `Homeless`+ `Children`+ 
-                         `Mental Health Treatment`+ `Mental Health Treatment`:num_diagnoses+Alcoholism
-                       + `Alcohol/Drug Treatment` + Gender + offense_type,
-                       data = train_data)
+train_model <- glm.nb(`Number Infractions` ~ Race + num_diagnoses +  
+                         `Times Arrested`+ `Years of Education`+ `ADD/ADHD`+ `Children`+ 
+                         `Mental Health Treatment`+ `Mental Health Treatment`:num_diagnoses + Alcoholism
+                       + `Alcohol/Drug Treatment` + Alcoholism:`Alcohol/Drug Treatment` + Gender + offense_type, data = high_risk_group)
 
 # 3. Predict on both sets
 pred_train <- predict(train_model, newdata = train_data, type = "response")
@@ -424,53 +427,7 @@ cat("Testing RMSE:", rmse(test_data$`Number Infractions`, pred_test), "\n")
 model_nb <- glm.nb(`Number Infractions` ~ Race + `Armed Forces` + `Marital Status` +`Times Arrested`+ `Years of Education`+ `ADD/ADHD`+ `Homeless`+ `Children`+ `Bipolar`+ Depression+ Schizophrenia+ PTSD+ Anxiety+ `Personality Disorder`+ Heroin + Cocaine + Meth + `Mental Health Treatment`+ Alcoholism+ `Alcohol/Drug Treatment`, data = cleaned)
 
 
-
 model_nb6<- glm.nb(`Number Infractions` ~ Race + num_diagnoses + `Armed Forces` + `Marital Status` +`Times Arrested`+ `Years of Education`+ `ADD/ADHD`+ `Homeless`+ `Children`+ `Bipolar`+ Depression+ Schizophrenia+ PTSD+ Anxiety+ Heroin + Cocaine + Meth + `Mental Health Treatment`+ `Mental Health Treatment`:num_diagnoses+Alcoholism+ `Alcohol/Drug Treatment` + Gender + offense_type, data = cleaned)
 summary(model_nb6)
 ```
-
-
-
-
-
-
-
-
-
-
-
-
-
-#Work
-
-```{r}
-vars3 <- c("at_risk", "Years.of.Education", "ADD.ADHD", "Gender", 
-          "offense_type", "Children", "Times.Arrested", 
-          "Mental.Health.Treatment", "Alcoholism")
-
-colSums(is.na(cleaned2[, vars]))
-```
-
-```{r}
-vars2 <- c("Race", "num_diagnoses", "ADD.ADHD", "Homeless", 
-          "offense_type", "Children", "Times.Arrested", 
-          "Mental.Health.Treatment", "Alcoholism", "Years.of.Education", "Alcohol.Drug.Treatment")
-
-colSums(is.na(cleaned2[, vars2]))
-
-```
-
-
-
-```{r}
-high_risk_group[is.na(high_risk_group$Race),]
-colSums(is.na(high_risk_group[, vars2]))
-
-```
-
-
-
-
-
-
 
