@@ -126,29 +126,24 @@ Our analysis focuses on:
 
 
 # Methods of Analysis 
-
 **The methodological challenge: a zero-inflated infraction count**\
-Most inmates have zero or very few infractions, while a small subset of inmates have many. Using one model applied across everyone performs poorly, causing us to get creative in our modelling.
-
-We address this by using a two-stage approach that separates *who is at risk* from *how severe that risk is*.
+Most inmates have zero or very few infractions, so typical modeling approaches performed poorly. We used a two-stage approach that separates *who is at risk* from *how severe that risk is*.
 
 **Stage 1: Logistic Regression Predicting who is at risk**
+"At risk" is equal to 1 if an inmate has
+-  Any severe mental health diagnosis
+-  More than 1 infraction, or
+-  3 or more total diagnoses
 
-We constructed a binary variable called "at risk", which is defined as being equal to 1 if:
+The logistic regression predicts if an inmate is at risk using a panel of demographic and institutional variables. Some of those included are mental health treatment, alcohol, gender, offense type, and prior arrests.
 
--   Inmate has any severe mental health diagnosis, or
--   Inmate has more than 1 infraction, or
--   Inmate has 3 or more total diagnoses
+$logit(P(At Risk = 1)) = \beta_0+\beta_1Edu$
+$+\beta_2ADD/ADHD+\beta_3Gender+$
+$\beta_4Offense+\beta_9Children+$
+$\beta_{10}Times Arrested+\beta_{11}MHT$
+$+\beta_{12}Alcoholism$
 
-Then the logistic regression model is able to predict if an inmate is at risk or not using a broad panel of demographic and institutional variables. Some of those included are mental health treatment, alcohol use, gender, offense type, and prior arrests.
-
-$logit(P(At Risk = 1)) = \beta_0+\beta_1Years of Education+\beta_2ADD/ADHD+\beta_3Gender:Male+$
-
-$\beta_4Offense:Other+\beta_5Offense:Property+\beta_6OffensePublic Order+\beta_7Offense:Unknown+$
-
-$\beta_8Offense:Violent+\beta_9Children+\beta_{10}Times Arrested+\beta_{11}Mental Health Treatment+\beta_{12}Alcoholism$
-
-The model is run on 15,450 observations which is a large sample size. After conducting a Likelihood-Ratio Test on our model, we find that our final model has a deviance score (null vs residual) of 4685 on 12 degrees of freedom and a p-value less than 0.001.
+The model has 15,450 observations. After conducting a Likelihood-Ratio Test, we find that our final model has a deviance score (null vs residual) of 4685 on 12 degrees of freedom and a p-value less than 0.001.
 
 **Key finding**: mental health treatment and ADD/ADHD diagnosis are strong predictors of being "at risk", but they don't predict how many infractions follow.
 
@@ -193,10 +188,6 @@ acc  <- round(cm$overall["Accuracy"] * 100, 1)
 nir  <- round(cm$overall["AccuracyNull"] * 100, 1)
 pval <- signif(cm$overall["AccuracyPValue"], 3)
 
-kable(cm_data, booktabs = TRUE, caption = "Stage 1 Confusion Matrix", align = "lcc",
-  escape = FALSE) %>%
-  footnote(general = "Overall Accuracy: 73.3% | Sensitivity: 75.3% | Specificity: 71.6% |
-           P-Value: < .001 | No Information Rate (NIR): 53.9%",threeparttable = TRUE)
 pred_probs <- predict(model3, type = "response", na.action = na.exclude)
 roc_obj <- suppressMessages(roc(
   response = cleaned2$at_risk[!is.na(pred_probs)],
@@ -210,23 +201,19 @@ abline(a = 0, b = 1, lty = 2, col = "gray50")
 ```
 
 **Stage 2: Negative Binomial Regression**
+Use the Stage 1 coefficients to create inmate predicted risk scores. Then inmates are split into high and low-risk comparison groups using the median. Then we wanted accurate predictions of how many violations individuals were likely to have. After iterating extensively, we finalized negative binomial which combats the zero-inflation problem well.
 
-We use the Stage 1 coefficients to generate a predicted risk score for each inmate. Then inmates are plit into high and low-risk comparison groups by using the median level of rule violations which was ().
+$ln(Infractions) = \beta_0+\beta_{1}# Diagnoses$
+$+\beta_{2}ADD/ADHD+\beta_{3}MHT$
+$+\beta_{4}Alcohol+\beta_{5}Alc Treatment$
+$+ \beta_{6}Diagnoses*MHT+$
+$\beta_{7}Alcohol*Alc Treatment+\gamma_{8}Controls$
 
-Once we had the two groups defined, we needed to find a model that fit our data and created the most accurate predictions of how many violations individuals were likely to have. By iterating through many models, we landed on a negative binomial which combats the zero-inflation problem well.
+The regression runs only on the high predicted risk group, with number of infractions as the outcome using a subsample of n=7,619 observations. This model identifies which factors drive infraction intensity within the high-risk group. Negative binomial is appropriate because the count outcome remains over dispersed even after filtering, with infraction values ranging from 1 to 50.
 
-$ln(Infractions) = \beta_0+\beta_{1}NumberofDiagnoses+\beta_{2}ADD/ADHD+\beta_{3}MentalHealthTreatment$
+Outliers above 50 infractions were removed. We initially thought a Poisson Model would be most appropriate, but was rejected due to its violated mean-variance assumption and higher AIC.
 
-$+\beta_{4}Alcoholism+\beta_{5}AlcoholTreatment+ \beta_{6}NumberofDiagnoses*MentalHealthTreatment+$
-
-$\beta_{7}Alcoholism*Alcohol Treatment+\gamma_{8}Controls$
-
-The negative binomial regression is run only on the high predicted risk group, with number of infractions as the outcome using a subsample of n=7,619 observations. This model identifies which factors drive infraction intensity within this group so we can discern what is influencing the high-risk group. Negative binomial is appropriate because the count outcome remains over dispersed even after filtering, with infraction values ranging from 1 to 50
-
-Outliers above 50 infractions were removed. We had intiaially thought a Poisson Model would be most appropriate, but it was rejected due to its violated mean-variance assumption and higher AIC.
-
-**Method Limitations** The results depend heavily on the Stage 1 performing well, because if it is a weak gatekeeper then the Stage 2 estimates will be inaccurate. Violation timing and severity are also unobserved in the data, so we can not more closely match treatment cycles to violations or the types. Additionally, having no location data prevents state-level controls, limiting our findings to general trends across the state prison population.
-
+**Method Limitations** The results depend on the Stage 1 performing well, because if it is a weak gatekeeper then the Stage 2 estimates are inaccurate. Violation timing and severity are unobserved in the data, so we can not more closely match treatment cycles to violations or the types. We also have no location data, limiting our findings to general trends across the state prison population.
 
 # Results and Interpretations
 
