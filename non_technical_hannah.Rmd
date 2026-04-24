@@ -1,0 +1,321 @@
+---
+title: "Prison Inmate Mental Health and Rule Violations"
+author:
+  - "Hannah Vollen"
+  - "Sophie Kemprecos"
+  - "Starr Mark"
+  - "Emily Wu"
+output:
+  html_document: default
+  pdf_document: default
+date: "21 April 2026"
+---
+```{css echo=FALSE}
+.main-container {
+  max-width: 100% !important;
+  width: 100% !important;
+  padding-left: 20px !important;
+  padding-right: 20px !important;
+}
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE, fig.align = "center")
+library(ggplot2)
+library(dplyr)
+library(scales)
+library(shiny)
+library(patchwork) 
+```
+
+## US Prisons and Mental Health Today
+Approximately 2 million individuals across the United States are currently being held in a state or federal prison (Sawyer et al., 2026). A large proportion of this population have a mental health disorder, with roughly 43% of state prisoners reporting a history of a mental health diagnosis (Prison Policy Initiative, 2026). However, the relationship between mental health, access to treatment, and inmate behavior is not well-understood at the policy level. Rule violations in correctional facilities, from serious to minor infractions, hold significant consequences for prison safety, inmate health, and long-term outcomes for those who will eventually reenter society. 
+
+This report pulls data from the 2016 Survey of Prison Inmates (SPI), a dataset containing over 20,000 state prison inmates' responses to over 2,000 questions. Our analysis examines which factors are highly correlated with rule violations during incarceration, with a focus on mental health diagnoses and whether inmates received mental health treatment. The goal of this project is to identify who commits rule violations, what drives that behavior, and how correctional institutions can better allocate resources to improve both inmate well-being and institutional security.
+
+The analysis and findings presented are designed to inform decision-makers about where gaps in prison mental health services may exist and how addressing those gaps could reduce infractions, improve inmate outcomes, and support safer, more effective correctional facilities.
+
+
+```{r, include=FALSE}
+df <- read.csv("/Users/sophiekemprecos/Desktop/Capstone/Final_data.csv")
+```
+
+## Motivation
+This project looks at prisoner outcomes during their sentences and how a range of factors influence the outcome of rule violations. This analysis is designed to give prison administrators and policymakers a clearer picture of where targeted investment in mental health services could have the greatest impact. Using a more current metric of wellness through violations has been shown to be predictive of how prisoner behavior may evolve after their sentence is over.  Rule violations during incarceration offer a window into inmate wellbeing and institutional stability that earlier outcome studies have largely overlooked.
+
+This analysis is intended to help identify areas where inmates are at their most vulnerable so that limited prison resources can be used in the most efficient ways. By using rule violations, we hope to push for earlier intervention in mental health treatment and identifying at-risk people. This is a shift from other analyses which often look at post-sentencing outcomes to determine wellness. This refocusing of the intervention time period highlights a need for earlier intervention and more directed resources. 
+
+Understanding who is most at risk of violations and the role mental health plays in that risk is the missing piece that this project addresses. There is a strong current conversation revolving about mental health in the general population that rarely considers the prison population. The rates of mental health issues are much higher for incarcerated people and those with any kind of a prison record. While treatment opportunities do exist for prisoners, the offerings typically do not have a wide range of types or a guaranteed high level of quality. This data and project allow us to assess and communicate findings about treatment at a broad level, as there was no way to identify what type of treatment a prisoner had received. The result is a broad base look at the pervasiveness of mental health issues and how treatment is interacting with other factors to change rule violation outcomes. 
+
+## Data
+
+The data referenced and used in this report come from the 2016 Survey of Prison Inmates (SPI). Data was collected via in-person interviews with approximately 20,000 inmates across 2,001 prisons in the US. The selection of inmates to be interviewed in the study used a two-stage sampling process. First, a sample of prisons was randomly selected, then inmates within these prisons were randomly selected. This process ensures the sample is representative of the broader state prison population.
+
+Interviews were conducted using computer-assisted technology to reduce the risk of human error, and inmates were assured that their responses would remain fully anonymous. Approximately 70% of inmates responded to the survey, which is relatively strong for this manner of data collection. Upon removing incomplete records, as well as variables that were suppressed for public use, our analysis examined more than 15,000 inmate responses across over 2,000 variables such as demographics, criminal history, mental health diagnoses, drug use, treatment history, and disciplinary records. 
+
+It should be noted that because the data this study uses comes from a cross-sectional data set - that is, the data is a snapshot in time - it only captures responses from those currently incarcerated at the time of the data collection in 2016. Thus, we are not able to see any long-term outcomes for any of the inmates. Additionally, it should be considered that at the time of this writing, the responses are roughly 10 years old.
+
+
+## Understanding the Prison Population Today
+According to our analysis of the data in the SPI, 78 percent of prisoners have a high school diploma or less. This is double the national standard in 2025, in which Census data reported that between 35 to 40 percent of Americans had a high school diploma or less (Bureau, 2022). The high concentration of low-education individuals is a signal of how education may be related to other areas of stability that are not found. With low education there may be more difficulty at finding gainful employment, information gaps, or early disengagement from public systems that prevented continued education opportunities.
+
+*It should be noted that the visualizations in this report were generated with the assistance of Claude, an AI tool developed by Anthropic. All underlying analysis and statistical results are our own.*
+
+```{r}
+edu <- df %>%
+  filter(!is.na(`Years.of.Education`), 
+         `Years.of.Education` > 0, 
+         `Years.of.Education` < 25) %>%
+  mutate(edu_group = case_when(
+      `Years.of.Education` <= 8 ~ "Middle School or Less",
+      `Years.of.Education` >= 9  & `Years.of.Education` <= 11 ~ "Some High School",
+      `Years.of.Education` == 12  ~ "High School Diploma / GED",
+      `Years.of.Education` >= 13 & `Years.of.Education` <= 15 ~ "Some College or Associates",
+      `Years.of.Education` >= 16 ~ "Bachelors or Higher"),
+    edu_group = factor(edu_group, levels = c("Middle School or Less", "Some High School",
+                                             "High School Diploma / GED", "Some College or Associates","Bachelors or Higher")))
+
+total_n <- nrow(edu)
+group_counts <- edu %>%
+  count(edu_group) %>%
+  mutate(pct = n / sum(n), label = paste0(round(pct * 100, 1), "%"))
+
+us_ref <- data.frame(
+  edu_group = factor(c("Middle School or Less", "Some High School", "High School Diploma / GED", 
+                       "Some College or Associates","Bachelors or Higher"), levels = levels(group_counts$edu_group)),
+  us_pct = c(0.140, 0.082, 0.268, 0.290, 0.330))
+
+group_counts <- left_join(group_counts, us_ref, by = "edu_group")
+
+ggplot(group_counts, aes(x = edu_group, y = n, fill = edu_group)) +
+  geom_col() +
+  geom_text(aes(label = paste0(round(n / sum(n) * 100, 1), "%")),
+            vjust = -0.6, fontface = "bold", size = 4.5, color = "#2C3E50") +
+  scale_fill_viridis_d(option = "viridis", begin = 0.10, end = 0.92, guide = "none") +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.08)))+
+  labs(title = "Education Levels of Incarcerated People",
+    subtitle = paste0("Education levels of ", format(total_n, big.mark = ","),
+      " state prison inmates from the survey of Prison Inmates, 2016"),x=NULL, y= "Number of Inmates") +
+  theme_minimal(base_size = 14) +
+  theme(plot.title         = element_text(face = "bold", size = 16, color = "#1a1a2e"),
+      plot.subtitle      = element_text(size = 10.5, color = "#555555", lineheight = 1.3),
+      panel.grid.major.x = element_blank(),
+      panel.grid.minor   = element_blank(),
+      plot.background    = element_rect(fill = "white", color = NA),
+      axis.text.x        = element_text(angle = 25, hjust = 1))
+```
+
+
+
+The next area of assessment to understand is mental health. In the 2016 sample, which is representative of the state prison population, 47 percent of all inmates had at least one diagnoses of a mental health issue. The staggeringly high rates mean that the issue is pervasive with one in every two inmates struggling with a mental health issue. We believe that the magnitude may be underestimated, as receiving a diagnoses has a high barrier in identification so the scale may be even larger. There is also an interesting spread of the type of mental health treatment. Depression is seen most commonly, followed by anxiety and bipolar disorder. Understanding what conditions are dominating is informative of what type of interventions may be most effective for treatment.
+
+
+
+```{r}
+donut_data <- data.frame(
+  status = factor(c("Has a Diagnosis", "No Diagnosis"), levels = c("No Diagnosis", "Has a Diagnosis")),
+  pct = c(0.467, 0.533))
+
+p1 <- ggplot(donut_data, aes(x = 2, y = pct, fill = status)) +
+  geom_col(width = 1, alpha = 0.91) +
+  coord_polar(theta = "y", start = 0) +
+  xlim(0.5, 2.5) +
+  scale_fill_manual(
+    values = c("No Diagnosis"    = "#d3d3d3",  "Has a Diagnosis" = "#3B528B"),
+    labels = c("No Diagnosis"    = "No Diagnosis (53.3%)",
+               "Has a Diagnosis" = "Has a Diagnosis (46.7%)"), name = NULL) +
+  labs(title = "Nearly Half of Inmates Have\na Mental Health Diagnosis") +
+  theme_void() +
+  theme(plot.title = element_text(face = "bold", size = 13, color = "#1a1a2e",
+                                   lineheight = 1.2, hjust = 0.5),
+    legend.position  = "bottom",
+    legend.text = element_text(size = 9, color = "#2C3E50"),
+    plot.background = element_rect(fill = "white", color = NA))
+
+
+conditions <- data.frame(
+  condition = factor(c("Depression", "Anxiety", "Bipolar Disorder", "PTSD", "Personality Disorder", "Schizophrenia"),
+                     levels = c("Schizophrenia", "Personality Disorder",  "PTSD", "Bipolar Disorder", "Anxiety", "Depression")),
+  pct = c(0.309, 0.264, 0.261, 0.180, 0.124, 0.087))
+
+p2 <- ggplot(conditions, aes(x = condition, y = pct, fill = condition)) +
+  geom_col(width = 0.6, alpha = 0.91) +
+  geom_text(aes(label = paste0(round(pct * 100, 1), "%")),
+            hjust = -0.15, fontface = "bold", size = 4, color = "#2C3E50") +
+  coord_flip() +
+  scale_fill_viridis_d(option = "viridis", begin = 0.10, end = 0.92, guide = "none") +
+  scale_y_continuous(limits = c(0, 0.38), expand = c(0, 0), labels = percent_format(accuracy = 1)) +
+  labs(title = "Most Common Diagnoses\nAmong Incarcerated People",
+       x = NULL, y = "Share of All Inmates") +
+  theme_minimal(base_size = 13) +
+  theme(plot.title = element_text(face = "bold", size = 13, color = "#1a1a2e",lineheight = 1.2),
+        panel.grid.major.y = element_blank(),
+        panel.grid.minor= element_blank(),
+        plot.background= element_rect(fill = "white", color = NA))
+
+
+p1 + p2 +
+  plot_annotation(title   = "Mental Health in U.S. Prisons",  subtitle = "Survey of Prison Inmates, 2016",
+                  caption  = "Note: inmates may have more than one diagnosis",
+    theme = theme(plot.title    = element_text(face = "bold", size = 17, color = "#1a1a2e"),
+                  plot.subtitle = element_text(size = 11, color = "#666666"),
+                  plot.caption  = element_text(size = 9,  color = "#aaaaaa"),
+                  plot.background = element_rect(fill = "white", color = NA)))
+```
+
+## What Drives the Number of Violations Among High-Risk Inmates?
+
+Our analysis was conducted in two stages, each stage using a different statistical model chosen to best answer the question being asked. The first stage used a logistic model which estimated the probability that each inmate falls into a high-risk or low-risk category for rule violations. Given a set of characteristics about an inmate, this first stage model calculates the likelihood that they belong in the high-risk group, then assigns them accordingly.
+
+The second stage used a negative binomial model, which then takes only those inmates classified as high-risk and estimates how much various characteristics increase or decrease the expected number of infractions. Together, the two stages allow us to first identify who is at risk of having a relatively high number of infractions, and then more precisely understand what drives the severity of their behavior within that group.
+
+From our analysis of the first stage model, several factors were identified as having a strong association with being classified as a high-risk inmate. Inmates with an ADD/ADHD diagnosis were among the most likely to fall into the high-risk category, as well as those with more previous arrests, and those diagnosed with alcoholism. Female inmates were more likely to be classified as high-risk than male inmates, which may seem surprising given that female inmates tend to have fewer raw violations overall. However, the high-risk classification reflects patterns across many characteristics simultaneously, not violation counts alone, which is consistent with the broader literature on gender differences in mental health burden within correctional populations. Finally, inmates with dependent children were less likely to be classified as high-risk, potentially suggesting that family responsibility could serve as a stabilizing factor for inmates.
+
+## Predicting Who Is High Risk
+The chart below summarizes the results of the first stage model, indicating which factors are most strongly associated with being classified as high-risk. Bars in red extending to the right indicate characteristics that increase the likelihood of an inmate being flagged as high-risk, while bars in blue extending to the left indicate characteristics that reduce it. The length of each bar reflects the relative strength of that factor – longer bars represent stronger associations and shorter bars represent weaker associations.
+
+```{r}
+stage1_results <- data.frame(
+  Variable = c(
+    "Received Mental Health Treatment",
+    "ADD/ADHD Diagnosis",
+    "Number of Prior Arrests",
+    "Property Offense",
+    "Public Order Offense",
+    "Violent Offense",
+    "Alcoholism Diagnosis",
+    "Has Dependent Children",
+    "Male Gender"),
+  Estimate = c(2.201666, 1.338996, 0.013053, 0.235999,
+               0.193383, 0.120553, 0.087787, -0.086372, -0.938654),
+  Direction = c("Increases Risk", "Increases Risk", "Increases Risk",
+                "Increases Risk", "Increases Risk", "Increases Risk",
+                "Increases Risk", "Decreases Risk", "Decreases Risk"))
+
+# Reorder by estimate
+stage1_results$Variable <- reorder(stage1_results$Variable, stage1_results$Estimate)
+
+ggplot(stage1_results, aes(x = Estimate, y = Variable, fill = Direction)) +
+  geom_col(width = 0.6) +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "gray40") +
+  scale_fill_manual(values = c("Increases Risk" = "#C0392B", "Decreases Risk" = "#2980B9")) +
+  labs(
+    title = "What Predicts Being Classified as High-Risk?",
+    subtitle = "Factors significantly associated with elevated risk of rule violations",
+    x = "Strength and Direction of Effect",
+    y = NULL,
+    fill = NULL,
+    caption = "Based on Stage 1 Logistic Regression. All variables shown are statistically significant.") +
+  theme_minimal(base_size = 13) +
+  theme(
+    plot.title = element_text(face = "bold", size = 15),
+    plot.subtitle = element_text(color = "gray40", size = 11),
+    legend.position = "top",
+    panel.grid.minor = element_blank(),
+    panel.grid.major.y = element_blank())
+```
+As previously discussed, factors such as having received mental health treatment, or having an ADD/ADHD diagnosis have the strongest association with an increased risk of being classified as 'High-Risk.' Male inmates have the strongest association of being classified as low-risk. 
+
+As for the results from our second stage model, within the high-risk group, the number of infractions an inmate accumulated was associated with several factors. Inmates with more mental health diagnoses committed more rule violations on average, and this relationship remained even when accounting for other characteristics. One of the strongest predictors of higher violation counts was a history of prior arrests. This indicates that prior involvement in the criminal justice system may be a strong indicator of infraction numbers. Higher levels of education, however, were associated with fewer violations, which suggests that educational achievement could serve as a preventative factor in rule violations.
+
+An ADD/ADHD diagnosis remained a significant predictor of higher violation counts in the second stage model, which points to the challenges this population may face in adhering to institutional rules. Alcoholism was also positively associated with violations, however inmates who received substance abuse treatment showed significantly lower violation counts than those who did not. This indicates that treatment can offset some of the behavioral risk associated with alcohol dependence. 
+
+Racial disparities were also present among the high-risk group. Black, Hispanic, and inmates of other non-White racial backgrounds were associated with higher violation counts compared to their White counterparts, even after controlling for other factors. This pattern warrants further investigation, as it may reflect systemic inequities in how infractions are documented and enforced across different inmate populations.
+
+Importantly, receiving mental health treatment during incarceration was associated with higher violation counts among high-risk inmates. While potentially seeming counterintuitive, it is likely due to the fact that inmates who are most severely affected by mental illness are both more likely to seek or be referred to treatment and are more likely to struggle behaviorally. This finding does not suggest that treatment itself increases violations.
+
+## Drivers of Rule Violations
+The chart below summarizes the results of our stage 2 model, focusing exclusively on the high-risk group and summarizing the factors most strongly associated with the number of rule violations those inmates accumulated. As before, bars extending to the right indicate characteristics linked to more violations, while bars extending to the left indicate characteristics associated with fewer. The length of each bar reflects the relative strength of that relationship.
+
+```{r}
+# Stage 2 significant predictors with plain language labels
+stage2_results <- data.frame(
+  Variable = c(
+    "Number of Prior Arrests",
+    "Black Race",
+    "Hispanic Race",
+    "Other Race",
+    "ADD/ADHD Diagnosis",
+    "Received Mental Health Treatment",
+    "Alcoholism Diagnosis",
+    "Number of Mental Health Diagnoses",
+    "Alcoholism + Received Substance Treatment",
+    "Public Order Offense",
+    "Has Dependent Children",
+    "Years of Education"),
+  Estimate = c(0.007892, 1.035282, 1.055092, 1.332395, 0.608301,
+               0.314835, 0.294014, 0.068673, -0.278128,
+               -0.238774, -0.399939, -0.040174),
+  Direction = c("More Violations", "More Violations", "More Violations",
+                "More Violations", "More Violations", "More Violations",
+                "More Violations", "More Violations", "Fewer Violations",
+                "Fewer Violations", "Fewer Violations", "Fewer Violations"))
+
+# Reorder by estimate
+stage2_results$Variable <- reorder(stage2_results$Variable, stage2_results$Estimate)
+
+ggplot(stage2_results, aes(x = Estimate, y = Variable, fill = Direction)) +
+  geom_col(width = 0.6) +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "gray40") +
+  scale_fill_manual(values = c("More Violations" = "#C0392B", "Fewer Violations" = "#2980B9")) +
+  labs(
+    title = "What Drives the Number of Violations Among High-Risk Inmates?",
+    subtitle = "Factors significantly associated with higher or lower violation counts",
+    x = "Strength and Direction of Effect",
+    y = NULL,
+    fill = NULL,
+    caption = "Based on Stage 2 Negative Binomial Regression. All variables shown are statistically significant.") +
+  theme_minimal(base_size = 13) +
+  theme(
+    plot.title = element_text(face = "bold", size = 15),
+    plot.subtitle = element_text(color = "gray40", size = 11),
+    legend.position = "top",
+    panel.grid.minor = element_blank(),
+    panel.grid.major.y = element_blank())
+```
+Among high-risk inmates, race emerges as one of the strongest factors associated with a higher number of violations, with Black, Hispanic, and other non-White inmates showing the largest positive associations. ADD/ADHD diagnosis and receipt of mental health treatment also show strong positive associations with violation counts, followed by alcoholism and number of mental health diagnoses. On the other side, having dependent children shows the strongest association with fewer violations, followed by alcoholism paired with substance abuse treatment, suggesting that treatment meaningfully offsets the behavioral risk associated with alcohol dependence. Years of education and public order offense type are also associated with lower violation counts, though less so.
+
+The following is an interactive dashboard that is the highlight of our work. This tool uses our statistical model estimates so that we can predict rule violations. The intention of a tool like this is to help intervene earlier by offering more directed resources to those who are at risk for higher rule violations. In such large prison systems, it is easy to use rule violations to characterize prisoners as "good" or "bad". We hope this tool will shift the focus of prison guards, wardens, and policymakers who have input on how prisoners are treated to realize a host of factors have culminated in the number of prison violations prisoners have.
+
+
+```{r echo=FALSE}
+knitr::include_url("https://skemprecos.shinyapps.io/PrisonPredictor/", height = "900px")
+```
+
+
+## Implications
+
+The findings from our analysis have meaningful implications for how state corrections departments identify, classify, and enact mental health and substance abuse resources across prisoner populations. While the results represent a broader trend across a national sample as opposed to a single state, they point to several areas where targeted action could help reduce rule violations and improve institutional safety.
+
+The strong association between mental health diagnoses and rule violations suggest that inmates with more complex mental health needs carry a higher source of potential institutional risk. As aforementioned, the fact that receiving mental health treatment was associated with higher violation counts should not be interpreted as evidence that treatment is ineffective or detrimental. It most likely reflects that inmates that are most in need of treatment are also those whose behavior is the most difficult to manage. State correctional departments should evaluate whether their current mental health intake screening processes are effectively identifying higher-needs inmates early enough. 
+
+Departments that rely on reactive referrals, where inmates are connected to mental health services only after an infraction occurs, may be missing a critical intervention period. Shifting toward systematic screening at intake, with escalating levels of care tied to various diagnoses, would more directly address and potentially help the population driving the highest violation counts.
+
+The findings around substance abuse are more encouraging than those surrounding mental health treatment. Among inmates with alcoholism, those who received substance abuse treatment accumulated notably fewer violations than those who did not. This suggests that existing substance abuse programs within state facilities are producing a measurable behavioral benefit. Departments should look into current enrollment rates in these programs relative to the size of the alcoholism-diagnosed population in their facilities, and consider whether waitlists, capacity constraints, or eligibility criteria are preventing high-risk inmates from accessing treatment in a timely manner.
+
+The association between ADD/ADHD and rule violations across both stages of the analysis highlights a population that may be poorly served by existing programming. State corrections departments should assess whether current mental health services distinguish between ADD/ADHD and other diagnoses when designing treatment plans, or whether all mental health needs are addressed through the same general programming. Given the specific impulse regulation and attention challenges associated with ADD/ADHD, a standardized institutional environment with no tailored behavioral support is unlikely to produce meaningful reductions in violations for this group.
+
+Finally, the racial disparities observed in the second stage - where Black, Hispanic, and other non-White inmates were associated with higher violation counts even after controlling for a wide range of other factors - call for direct attention from state corrections departments. Departments should determining whether infraction reporting and disciplinary procedures are being applied consistently across inmate populations, and whether staff training adequately addresses the potential for bias in how violations are documented and escalated.
+
+## Limitations
+
+As with any large-scale analysis, there are important boundaries to what these findings can and cannot tell us. Decision-makers should keep the following limitations in mind when interpreting the results and considering what action to take.
+
+First, the data does not include information on when rule violations occurred relative to when an inmate received mental health or substance abuse treatment. This means we cannot determine whether treatment preceded or followed a violation, which limits our ability to make strong causal claims about the direction of these relationships. The findings reflect associations between characteristics and violation counts, not proof that one factor directly caused another.
+
+Second, state-level identifiers were not available in the publicly accessible version of this dataset. As a result, the analysis cannot account for differences in how individual state prison systems operate, including variations in mental health screening protocols, treatment availability, disciplinary procedures, and resource levels. A state corrections department reviewing these findings should consider how their specific policies and practices may produce results that differ from these national-level trends.
+
+Third, the data does not capture the severity or type of rule violations, only the count. An inmate with ten minor infractions is treated the same as an inmate with ten serious ones. This means the findings speak to the volume of violations rather than their nature, which may matter for how departments prioritize interventions.
+
+Finally, while steps were taken to encourage honest responses, including anonymity assurances, self-reported data on sensitive topics such as mental health and substance use carries the risk of underreporting. Inmates may have understated certain diagnoses or behaviors, which could affect the accuracy of some estimates.
+
+## References
+Anthropic. (2026). Claude (claude-sonnet-4-6) [Large language model]. Data visualizations generated April 2026. https://claude.ai
+
+Bureau, U. C. (2022, February 24). Census Bureau releases New Educational Attainment Data. Census.gov. https://www.census.gov/newsroom/press-releases/2022/educational-attainment.html#:~:text=Here%20are%20some%20highlights%20from%20the%20data:,an%20advanced%20degree%20in%202021%20*%20**Nativity** 
+
+Prison Policy Initiative. (2026, April 17). Mental health: Research on the prevalence and treatment of mental illness in the criminal legal system. https://www.prisonpolicy.org/research/mental_health/
+
+Sawyer, W., Nam-Sonenstein, B., & Wagner, P. (2026, March 11). Mass incarceration: The whole pie 2026. Prison Policy Initiative. https://www.prisonpolicy.org/reports/pie2026.html
+
+
