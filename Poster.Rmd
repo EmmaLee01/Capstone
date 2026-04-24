@@ -1,0 +1,220 @@
+---
+title: "Mental Health and Rule Violations in U.S. State Prisons"
+author: "Hannah V., Sophie K., Emily W., & Starr M."
+date: "April 24, 2026"
+logoleft_name: "bars.png"
+logoright_name: "MH.png"
+primary_colour: "#E57200"
+title_textcol: "#FFFFFF"
+body_textcol: "#FFFFFF"
+institute: "University of Virginia"
+body_bgcol: "#232D4B"
+poster_height: "36in"
+poster_width: "48in"
+column_numbers: 5
+font_family: Garamond
+output:
+  posterdown::posterdown_html
+---
+
+<style>
+body, p, li, ul, ol, strong, em {
+  color: #FFFFFF !important;
+}
+
+h1, h2, h3 {
+  color: #FFDDBF !important;
+}
+
+a {
+  color: #FFDDBF !important;
+}
+</style>
+
+# Introduction and Data 
+
+**Background**<br>
+Rule violations during incarceration reflect both inmate wellbeing and institutional safety. This project uses rule violations as an early signal of risk, shifting attention away from only post‑release outcomes toward what happens during prison sentences. Our goal is to show where mental health services and other supports could most reduce infractions and improve conditions for incarcerated people.
+
+**Research Questions**<br>
+We focus on two main questions:
+
+<u>Which demographic, criminal history, and clinical factors are associated with higher infraction risk?</u>
+
+<u>How do mental health diagnoses and in‑prison mental health treatment relate to that risk, and do current services appear to reach those at highest risk?</u>
+
+**Data**<br>
+We use the _2016 Survey of Prison Inmates (SPI), United States (ICPSR 37692)_, a public‑use survey of state prisoners. About 20,000 inmates were selected through a two‑stage probability sample to represent roughly 1.5 million state prisoners nationwide. Data come from in‑person, computer‑assisted interviews and linked records, with anonymity protections and a relatively high response rate.
+
+<u>**Key Variables**</u><br>
+Our analysis focuses on:
+
+**Mental health**: number of mental health diagnoses (severity proxy) and indicators of receiving mental health treatment during incarceration.
+
+**Substance use**: indicators of alcohol abuse and participation in alcohol treatment programs.
+
+**Social and criminal history**: education, prior arrests, and other demographic and offense characteristics used as controls.
+
+
+# Methods of Analysis {.mybreak}
+
+BLAH BLAH BLAH
+
+
+# Results {.mybreak}
+
+BLAH BLAH BLAH
+
+# Data visualizations 
+
+```{r, echo = F, warning = F, message=F}
+library(tidyverse)
+
+ggplot(mtcars, aes(x=hp, y = mpg)) + geom_point()
+```
+
+
+# Interpretations {.mybreak}
+
+**Stage 1 - Who is High Risk?**
+
+
+```{r, echo = F, warning = F, message=F, fig.width=9, fig.height=5}
+# Stage 1 significant predictors with plain language labels
+stage1_results <- data.frame(
+  Variable = c(
+    "MH Treatment",
+    "ADD/ADHD",
+    "Prior Arrests",
+    "Property Offense",
+    "Public Order Offense",
+    "Violent Offense",
+    "Alcoholism",
+    "Dependent Children",
+    "Male Gender"
+  ),
+  Estimate = c(2.201666, 1.338996, 0.013053, 0.235999,
+               0.193383, 0.120553, 0.087787, -0.086372, -0.938654),
+  Direction = c("Increases Risk", "Increases Risk", "Increases Risk",
+                "Increases Risk", "Increases Risk", "Increases Risk",
+                "Increases Risk", "Decreases Risk", "Decreases Risk")
+)
+
+# Reorder by estimate
+stage1_results$Variable <- reorder(stage1_results$Variable, stage1_results$Estimate)
+
+ggplot(stage1_results, aes(x = Estimate, y = Variable, fill = Direction)) +
+  geom_col(width = 0.6) +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "gray40") +
+  scale_fill_manual(values = c("Increases Risk" = "#C0392B", "Decreases Risk" = "#2980B9")) +
+  labs(
+    x = "Strength and Direction of Effect",
+    y = NULL,
+    fill = NULL,
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+    plot.title = element_text(face = "bold", size = 15),
+    plot.subtitle = element_text(color = "gray40", size = 11),
+    legend.position = "top",
+    panel.grid.minor = element_blank(),
+    panel.grid.major.y = element_blank(),
+    axis.text.y = element_text(color = "black", face = "bold", size = 16),
+axis.text.x = element_text(color = "black", size = 14), legend.text = element_text(size = 16, face = "bold", color = "black"),
+legend.title = element_blank(),axis.title.x = element_text(size = 18, face = "bold", color = "black")
+  )
+```
+
+- **Mental Health treatment → strongest predictor** of high-risk classification.
+- **ADD/ADHD → nearly 4× higher odds** of being classified as high risk.
+- **Male gender → lower predicted risk** after controlling for other factors.
+- Results suggest treatment is concentrated among inmates with greater clinical or behavioral need.
+
+**Stage 2 - What Drives Violation Counts?**
+
+```{r, echo = F, warning = F, message=F, fig.width=9, fig.height=5}
+# Stage 2 significant predictors with plain language labels
+stage2_results <- data.frame(
+  Variable = c(
+    "Prior Arrests",
+    "Black Race",
+    "Hispanic Race",
+    "Other Race",
+    "ADD/ADHD",
+    "MH Treatment",
+    "Alcoholism",
+    "# MH Diagnoses",
+    "Alcoholism + Treatment",
+    "Public Order Offense",
+    "Dependent Children",
+    "Years of Education"
+  ),
+  Estimate = c(0.007892, 1.035282, 1.055092, 1.332395, 0.608301,
+               0.314835, 0.294014, 0.068673, -0.278128,
+               -0.238774, -0.399939, -0.040174),
+  Direction = c("More Violations", "More Violations", "More Violations",
+                "More Violations", "More Violations", "More Violations",
+                "More Violations", "More Violations", "Fewer Violations",
+                "Fewer Violations", "Fewer Violations", "Fewer Violations")
+)
+
+# Reorder by estimate
+stage2_results$Variable <- reorder(stage2_results$Variable, stage2_results$Estimate)
+
+ggplot(stage2_results, aes(x = Estimate, y = Variable, fill = Direction)) +
+  geom_col(width = 0.6) +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "gray40") +
+  scale_fill_manual(values = c("More Violations" = "#C0392B", "Fewer Violations" = "#2980B9")) +
+  labs(
+    x = "Strength and Direction of Effect",
+    y = NULL,
+    fill = NULL
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+    axis.title.x = element_text(size = 18, face = "bold", color = "black"),legend.text = element_text(size = 16, face = "bold", color = "black"),
+legend.title = element_blank(),axis.text.y = element_text(color = "black", face = "bold", size = 16),
+axis.text.x = element_text(color = "black", size = 14),
+    plot.title = element_text(face = "bold", size = 15),
+    plot.subtitle = element_text(color = "gray40", size = 11),
+    legend.position = "top",
+    panel.grid.minor = element_blank(),
+    panel.grid.major.y = element_blank()
+  )
+```
+
+- **ADD/ADHD → strongest clinical predictor** of higher violation counts.
+- **More diagnoses and prior arrests → more expected violations.**
+- **Education and children → fewer expected violations.**
+- **Alcohol/drug treatment may be protective among inmates with alcoholism.**
+- **Race** had very strong associations with rule violations. Indicates likely bias in who receives infractions.
+
+# Implications & Next Steps
+
+**Policy Implications**
+
+- **Target mental health services:** High-risk inmates are concentrated among those already receiving treatment, suggesting a need for earlier or expanded intervention.
+- **Expand substance use treatment:** Evidence that treatment reduces violations among inmates with alcoholism highlights a clear opportunity for investment.
+- **Examine racial disparities:** Higher violation counts persist across groups, pointing to the need for consistency in disciplinary practices.
+
+**Next Steps**
+
+- **Add timing and facility data:** To better understand when and where violations occur.
+- **Evaluate treatment effectiveness:** Separate selection into treatment from true causal effects.
+- **Extend to longitudinal analysis:** Track how risk and behavior evolve over time.
+
+# The Capstone Experience
+
+**What Makes This Project Distinctive**
+
+- **Focus on in-sentence outcomes:** Shifts attention from recidivism to what happens during incarceration, where intervention is still possible.
+- **Two-stage modeling approach:** Separates who is high risk from what drives violation intensity, revealing different underlying processes.
+- **Real-world data constraints:** Required decisions about missing data, variable construction, and model choice without perfect information.
+- **Policy-oriented framing:** Results were interpreted with correctional practice and resource allocation in mind.
+
+**What We Gained**
+
+- **Full project autonomy:** From raw data to final presentation, we managed the full analytical process independently.
+- **Decision-making:** We selected models and justified decisions without a single “correct” answer.
+- **Communication across audiences:** Producing both technical and non-technical outputs strengthened clarity and accessibility.
+- **Collaborative analysis:** Team-based work required coordination, iteration, and synthesis of different approaches.
