@@ -77,7 +77,7 @@ violators_only <- df2 %>% filter(`Number.Infractions` > 0)
 df2$is_violator <- ifelse(df2$`Number.Infractions` > 0, "Violator", "Non-Violator")
 ```
 
-```{r, warning=FALSE}
+```{r, warning=FALSE, echo=F}
 ggplot(df2, aes(x = Gender, y = `Number.Infractions` + 1, fill = Gender)) +
   geom_boxplot(outlier.shape = NA, alpha = 0.7) +
   scale_y_log10() +
@@ -89,7 +89,7 @@ ggplot(df2, aes(x = Gender, y = `Number.Infractions` + 1, fill = Gender)) +
 
 The above figure is a boxplot of female versus male inmates from the sample. In exploration of what kind of variation there might be between inmate subgroups, we assessed gender as the literature had often noted strong differences in inmate behavior based on gender. The female prison population has a much more concentrated number of violations around zero in comparison to the male population. The male inmates share a similar median around one rule violation, but have a much larger spread of data compared to the female inmates. This indicated that gender would be an important demographic variable to include in our model.
 
-```{r, warning=FALSE}
+```{r, warning=FALSE, echo=F}
 ggplot(violators_only, aes(x = as.factor(num_diagnoses), y = `Number.Infractions`, fill = as.factor(num_diagnoses))) + 
   geom_boxplot(width = 0.1, outlier.shape = NA) +
   scale_fill_viridis_d(option = "virdis", begin = 0.2, end = 0.8) +
@@ -101,7 +101,7 @@ ggplot(violators_only, aes(x = as.factor(num_diagnoses), y = `Number.Infractions
 
 The data includes variables that detail if a prisoner has ever received a diagnosis of bipolar disorder, depression, schizophrenia, anxiety, PTSD, and a host of other mental health issues. We created a variable that summarizes the number of diagnoses based on the existing diagnoses an inmate has. The above boxplot shows a moderate infraction count for those with two or fewer diagnoses, but a noticeable jump in spread occurs at the third diagnoses. There is a noticeable increase in the count of infractions after the third diagnosis, a trend that continues up until the sixth mental health diagnoses.
 
-```{r, warning=FALSE}
+```{r, warning=FALSE, echo=F}
 ggplot(df2, aes(x = as.factor(offense_type), fill = is_violator)) +
   geom_bar(position = "fill") + 
   scale_y_continuous(labels = scales::percent) +
