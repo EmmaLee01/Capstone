@@ -12,7 +12,7 @@ institute: "University of Virginia"
 body_bgcol: "#232D4B"
 poster_height: "38in"
 poster_width: "48in"
-column_numbers: 5
+column_numbers: 4
 font_family: Garamond
 output:
   posterdown::posterdown_html
@@ -125,12 +125,16 @@ Our two-stage approach that separates the *who* from *severity* of risk.
 **Stage 1: Predicting who is at risk**
 The logistic regression predicts if an inmate is at risk using a panel of demographic and institutional variables. Model has a deviance score of 4685 on 12 degrees of freedom and significant p-value less than 0.001.
 
-$logit(At Risk) = \beta_0+\beta_1Edu+\beta_2ADHD$
-$+\beta_3Gender+\beta_4Offense+\beta_9Children+$
-$\beta_{10}Times Arrested+\beta_{11}MHT+\beta_{12}Alcohol$
+<div style="font-size: 45px; text-align: center; line-height: 2;">
+
+$logit(At Risk) = \beta_0+\beta_1Edu+\beta_2ADHD+\beta_3Gender$
+$+\beta_4Offense+\beta_9Children+\beta_{10}Times Arrested$
+$+\beta_{11}MHT+\beta_{12}Alcohol$
+
+</div>
 
 **Finding**: mental health treatment and ADHD strongly predict being "at risk"
-```{r, echo=F}
+```{r, echo=F, messages = F, warning = F, out.width="105%", out.height="110%"}
 model3 <- glm(at_risk ~ `Years.of.Education` + `ADD.ADHD` + 
                 Gender + offense_type + Children + `Times.Arrested` + 
                 `Mental.Health.Treatment` + Alcoholism,
@@ -176,9 +180,10 @@ roc_obj <- suppressMessages(roc(
   response = cleaned2$at_risk[!is.na(pred_probs)],
   predictor = pred_probs[!is.na(pred_probs)]))
 
-suppressMessages(plot(roc_obj, col = "#39ae85", lwd = 2,
+
+plot(roc_obj, col = "#39ae85", lwd = 2,
      main = paste("ROC Curve (AUC =", round(auc(roc_obj), 3), ")"),
-     print.auc = TRUE, print.auc.xy = c(0.4, 0.2)))
+     print.auc = TRUE, print.auc.xy = c(0.4, 0.2))
 
 abline(a = 0, b = 1, lty = 2, col = "gray50")
 ```
@@ -186,10 +191,14 @@ abline(a = 0, b = 1, lty = 2, col = "gray50")
 **Stage 2: Severity of Infractions**
 Stage 1 predicts high and low-risk comparison groups, stage 2 reveals the strongest predictors of high-risk.
 
-$ln(Infractions) =\beta_0+\beta_{1}Diagnoses$
-$+\beta_{2}ADD/ADHD+\beta_{3}MHT+\beta_{4}Alcohol+$
-$\beta_{5}Alc Treatment+\beta_{6}Diagnoses*MHT+$
-$\beta_{7}Alcohol*Alc Treatment+\gamma_{8}Controls$
+<div style="font-size: 45px; text-align: center; line-height: 2;">
+
+$$ln(Infractions) = \beta_0 + \beta_{1}Diagnoses + \beta_{2}ADD/ADHD$$
+$$+ \beta_{3}MHT + \beta_{4}Alcohol + \beta_{5}Alc\ Treatment$$
+$$+ \beta_{6}Diagnoses \times MHT + \beta_{7}Alcohol \times Alc\ Treatment$$
+$$+ \gamma_{8}Controls$$
+
+</div>
 
 **Method Limitations** Results depend on the Stage 1 performance. No location data, limiting findings to general trends across the prison population.
 
@@ -236,11 +245,18 @@ kable(
   footnote(
     general = "Overall Accuracy: 73.3% | Sensitivity: 75.3% | Specificity: 71.6% | P-Value: < .001 | No Information Rate (NIR): 53.9%",
     threeparttable = TRUE
-  )
+  ) %>%
+  row_spec(0, bold = TRUE, background = "#0077B5", color = "white") %>%
+  row_spec(1, background = "#fff3cd", color = "black") %>%  
+  row_spec(2, background = "#E57200", color = "black")
+#  row_spec(3, background = "#fff3cd") %>%
+#  row_spec(4, background = "#E57200") %>%
+#  column_spec(1, bold = TRUE) %>%
+#  column_spec(2, color = "#0077B5", bold = TRUE)
 ```
 
 **Stage 1 - Who is High Risk?**
-```{r, echo = F, warning = F, message=F, fig.width=9, fig.height=5}
+```{r, echo = F, warning = F, message=F, fig.width=9, fig.height=5.3}
 # Stage 1 significant predictors with plain language labels
 stage1_results <- data.frame(
   Variable = c(
@@ -284,7 +300,8 @@ axis.text.x = element_text(color = "black", size = 14), legend.text = element_te
 legend.title = element_blank(),axis.title.x = element_text(size = 18, face = "bold", color = "black")
   )
 ```
-```{r, echo = F, warning = F, message=F, out.width="110%" }
+
+```{r, echo = F, warning = F, message=F, out.width="120%", out.height="105%" }
 stage1_table <- data.frame(
   Predictor = c(
     "Mental Health Treatment",
@@ -304,7 +321,7 @@ stage1_table <- data.frame(
 
 kable(stage1_table,
       booktabs = TRUE,
-      align = "lll")%>%
+      align = "lcr")%>%
     kable_styling(
     full_width = TRUE,
     font_size = 30,
@@ -324,7 +341,7 @@ kable(stage1_table,
 - Treatment concentrated among inmates with greater clinical or behavioral need.
 
 **Stage 2 - What Drives Violation Counts?**
-```{r, echo = F, warning = F, message=F, fig.width=9, fig.height=5}
+```{r, echo = F, warning = F, message=F, fig.width=10, fig.height=5}
 # Stage 2 significant predictors with plain language labels
 stage2_results <- data.frame(
   Variable = c(
@@ -353,28 +370,29 @@ stage2_results <- data.frame(
 # Reorder by estimate
 stage2_results$Variable <- reorder(stage2_results$Variable, stage2_results$Estimate)
 
-ggplot(stage2_results, aes(x = Estimate, y = Variable, fill = Direction)) +
-  geom_col(width = 0.6) +
-  geom_vline(xintercept = 0, linetype = "dashed", color = "gray40") +
-  scale_fill_manual(values = c("More Violations" = "#C0392B", "Fewer Violations" = "#2980B9")) +
-  labs(
-    x = "Strength and Direction of Effect",
-    y = NULL,
-    fill = NULL
-  ) +
-  theme_minimal(base_size = 13) +
-  theme(
-    axis.title.x = element_text(size = 18, face = "bold", color = "black"),legend.text = element_text(size = 16, face = "bold", color = "black"),
-legend.title = element_blank(),axis.text.y = element_text(color = "black", face = "bold", size = 16),
-axis.text.x = element_text(color = "black", size = 14),
-    plot.title = element_text(face = "bold", size = 15),
-    plot.subtitle = element_text(color = "gray40", size = 11),
-    legend.position = "top",
-    panel.grid.minor = element_blank(),
-    panel.grid.major.y = element_blank()
-  )
+#ggplot(stage2_results, aes(x = Estimate, y = Variable, fill = Direction)) +
+#  geom_col(width = 0.6) +
+#  geom_vline(xintercept = 0, linetype = "dashed", color = "gray40") +
+#  scale_fill_manual(values = c("More Violations" = "#C0392B", "Fewer Violations" = "#2980B9")) +
+#  labs(
+#    x = "Strength and Direction of Effect",
+#    y = NULL,
+#    fill = NULL
+#  ) +
+#  theme_minimal(base_size = 13) +
+#  theme(
+#    axis.title.x = element_text(size = 18, face = "bold", color = "black"),legend.text = #element_text(size = 16, face = "bold", color = "black"),
+#legend.title = element_blank(),axis.text.y = element_text(color = "black", face = "bold", size = #16),
+#axis.text.x = element_text(color = "black", size = 14),
+#    plot.title = element_text(face = "bold", size = 15),
+#    plot.subtitle = element_text(color = "gray40", size = 11),
+#    legend.position = "top",
+#    panel.grid.minor = element_blank(),
+#    panel.grid.major.y = element_blank()
+#  )
 ```
-```{r, warning=F, message=F, echo=F,fig.width=9, fig.height=11 }
+
+```{r, warning=F, message=F, echo=F,fig.width=11, fig.height=16 }
 library(ggplot2)
 library(dplyr)
 
@@ -438,7 +456,7 @@ ggplot(coef_data, aes(x = estimate, y = term)) +
     panel.grid.major.y = element_line(linetype = "dotted", color = "gray85"),
     plot.title = element_text(face = "bold", size = 20),
     plot.subtitle = element_text(size = 12, color = "gray40"),
-    axis.text.y = element_text(size = 15))
+    axis.text.y = element_text(size = 18, face = "bold"))
       
 ```
 - **ADD/ADHD → strongest clinical predictor** of higher violation counts.

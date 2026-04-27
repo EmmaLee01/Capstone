@@ -1,4 +1,9 @@
 ---
+output:
+  pdf_document: default
+  html_document: default
+---
+  ---
 title: "Technical Report"
 author: "Emily Wu, Starr Mark, Sophie Kemprecos, Hannah Vollen"
 date: "2026-04-15"
@@ -575,5 +580,13 @@ summary(stage2_model)
 
 
 ```
+
+\newpage
+
+# References
+
+Prison Policy Initiative. (2026, April). Mental health: Research on the prevalence and treatment of mental illness in the criminal legal system. https://www.prisonpolicy.org/research/mental_health/
+
+Anthropic. (2026). Claude (claude-sonnet-4-6) [Large language model]. Data visualizations generated April 2026. https://claude.ai
 
 
